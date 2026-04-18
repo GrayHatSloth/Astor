@@ -6,7 +6,16 @@
 # ============================================================
 
 import os
+import sys
 import threading
+from pathlib import Path
+
+# Ensure `src` package is importable from different deployment root layouts.
+project_root = Path(__file__).resolve().parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "src"))
+if project_root.name == "src":
+    sys.path.insert(0, str(project_root.parent))
 
 import discord
 from discord.ext import commands
