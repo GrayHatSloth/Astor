@@ -112,6 +112,20 @@ class PointsManager:
         self.save_points()
         self.invalidate_leaderboard_cache()
 
+    def set_points(self, user_id: int, points: int):
+        """Set a user's point total directly."""
+        user_data = self.get_points(user_id)
+        user_data["points"] = int(points)
+        self.save_points()
+        self.invalidate_leaderboard_cache()
+
+    def set_wins(self, user_id: int, wins: int):
+        """Set a user's win total directly."""
+        user_data = self.get_points(user_id)
+        user_data["wins"] = int(wins)
+        self.save_points()
+        self.invalidate_leaderboard_cache()
+
     def get_points(self, user_id: int) -> dict:
         """
         Return the full data dict for a user, creating missing keys

@@ -51,8 +51,45 @@ async def _all_item_autocomplete(interaction: discord.Interaction, current: str)
 
 # ── Registration ────────────────────────────────────────────
 
-async def setup(bot, shop_manager):
+async def setup(bot, shop_manager, points_manager):
     """Register all admin slash commands on the bot tree."""
+
+    async def _require_admin(interaction: discord.Interaction) -> bool:
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ You need administrator permissions!", ephemeral=True)
+            return False
+        return True
+
+    # ── /setstats ───────────────────────────────────────────
+
+    @bot.tree.command(
+        name="setstats",
+        description="Set a user's points or wins (Admin only)",
+        guild=discord.Object(id=Config.GUILD_ID),
+    )
+    @app_commands.describe(
+        stat="Which stat to set",
+        user="The user whose stat will be updated",
+        value="The numeric value to set",
+    )
+    @app_commands.choices(stat=[
+        app_commands.Choice(name="points", value="points"),
+        app_commands.Choice(name="wins", value="wins"),
+    ])
+    async def set_stats_cmd(interaction: discord.Interaction, stat: app_commands.Choice[str], user: discord.Member, value: int):
+        if not await _require_admin(interaction):
+            return
+
+        if value < 0:
+            await interaction.response.send_message("❌ Value must be 0 or greater.", ephemeral=True)
+            return
+
+        if stat.value == "points":
+            points_manager.set_points(user.id, value)
+            await interaction.response.send_message(f"✅ Set {user.display_name}'s points to {value}", ephemeral=True)
+        else:
+            points_manager.set_wins(user.id, value)
+            await interaction.response.send_message(f"✅ Set {user.display_name}'s wins to {value}", ephemeral=True)
 
     # ── /add_shop_item ──────────────────────────────────────
 

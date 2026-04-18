@@ -49,7 +49,7 @@ def setup(bot, managers):
                 await weekly_commands.setup(bot, mm, tm)
                 await points_commands.setup(bot, pm)
                 await shop_commands.setup(bot, sm)
-                await admin_commands.setup(bot, sm)
+                await admin_commands.setup(bot, sm, pm)
                 await utility_commands.setup(bot)
                 bot.commands_registered = True
 

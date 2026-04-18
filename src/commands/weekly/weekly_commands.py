@@ -15,6 +15,12 @@ from config import Config
 async def setup(bot, mode_manager, twist_manager):
     """Register all weekly-related slash commands on the bot tree."""
 
+    async def _require_admin(interaction: discord.Interaction) -> bool:
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ You need administrator permissions!", ephemeral=True)
+            return False
+        return True
+
     @bot.tree.command(
         name="startweekly",
         description="Start the new weekly event with a random mode",
@@ -29,6 +35,9 @@ async def setup(bot, mode_manager, twist_manager):
             twist_ok = await twist_manager.start_twist(
                 bot.get_channel(Config.GENERAL_CHANNEL_ID)
             )
+
+        if not await _require_admin(interaction):
+            return
 
         if mode_ok and twist_ok:
             await interaction.followup.send("✅ Weekly event started!", ephemeral=True)
@@ -65,6 +74,9 @@ async def setup(bot, mode_manager, twist_manager):
                 bot.get_channel(Config.GENERAL_CHANNEL_ID)
             )
 
+        if not await _require_admin(interaction):
+            return
+
         if mode_ok and twist_ok:
             await interaction.followup.send(f"✅ Forced weekly mode: {mode.name}", ephemeral=True)
         elif not mode_ok:
@@ -83,6 +95,9 @@ async def setup(bot, mode_manager, twist_manager):
     )
     async def endweekly(interaction: discord.Interaction):
         gen = bot.get_channel(Config.GENERAL_CHANNEL_ID)
+        if not await _require_admin(interaction):
+            return
+
         if gen:
             await twist_manager.end_twist(gen)
             await interaction.response.send_message("Weekly twist ended!", ephemeral=True)
