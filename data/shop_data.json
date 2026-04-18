@@ -1,0 +1,26 @@
+{
+    "nickname_requests": {
+        "992399209686892604": {
+            "status": "pending",
+            "requested_nickname": "zigga",
+            "requested_at": 1775856402
+        },
+        "1380264501550649425": {
+            "status": "pending",
+            "requested_nickname": "ass sucker",
+            "requested_at": 1776023670
+        }
+    },
+    "purchase_history": {
+        "1380264501550649425": {
+            "custom_nickname": 1,
+            "points_multiplier": 1,
+            "temporary_booster": 1,
+            "vip_package": 1
+        },
+        "992399209686892604": {
+            "temporary_booster": 2,
+            "vip_package": 1
+        }
+    }
+}

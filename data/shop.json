@@ -1,0 +1,48 @@
+{
+    "vip_package": {
+        "name": "\u2b50 VIP Package",
+        "description": "Get VIP role + access to exclusive VIP chat channel",
+        "price": 800,
+        "type": "vip_package",
+        "role_id": 1492262941280698540,
+        "channel_id": 1493018223547781354,
+        "stock": -1,
+        "enabled": true
+    },
+    "custom_nickname": {
+        "name": "\ud83d\udcdd Custom Nickname",
+        "description": "Change your nickname (admin approval required)",
+        "price": 200,
+        "type": "nickname",
+        "stock": -1,
+        "enabled": true
+    },
+    "points_multiplier": {
+        "name": "\u26a1 2x Points Multiplier",
+        "description": "Earn double points permanently",
+        "price": 2500,
+        "type": "permanent_multiplier",
+        "multiplier": 2,
+        "stock": -1,
+        "enabled": true
+    },
+    "temporary_booster": {
+        "name": "\ud83d\ude80 24h Points Booster",
+        "description": "Earn 3x points for 24 hours",
+        "price": 400,
+        "type": "temporary_booster",
+        "multiplier": 3,
+        "duration": 86400,
+        "stock": -1,
+        "enabled": true
+    },
+    "priority_speaker": {
+        "name": "\ud83c\udfa4 Priority Speaker",
+        "description": "Get priority role for voice channels",
+        "price": 400,
+        "type": "role",
+        "role_id": 1492263084268458026,
+        "stock": -1,
+        "enabled": true
+    }
+}
