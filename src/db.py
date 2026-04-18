@@ -11,7 +11,14 @@ class Database:
     """Simple JSON-backed PostgreSQL persistence for app state."""
 
     def __init__(self):
-        self.url = os.getenv("DATABASE_URL") or Config.DATABASE_URL
+        raw_url = os.getenv("DATABASE_URL") or Config.DATABASE_URL
+        if isinstance(raw_url, str):
+            raw_url = raw_url.strip()
+            if raw_url.startswith("DATABASE_URL="):
+                raw_url = raw_url.split("=", 1)[1].strip()
+            if raw_url.startswith("postgresql://"):
+                raw_url = f"postgres://{raw_url[len('postgresql://'):]}"
+        self.url = raw_url
         self.enabled = bool(self.url)
         self.conn = None
 

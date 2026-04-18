@@ -54,13 +54,6 @@ class Config:
     # ── Prefix Commands ─────────────────────────────────────
     COMMAND_PREFIXES = ("a.",)
 
-    # ── Data File Paths ─────────────────────────────────────
-    # All JSON persistence files live in the data/ folder
-    POINTS_FILE = os.path.join("data", "points.json")
-    SHOP_FILE = os.path.join("data", "shop.json")
-    SHOP_DATA_FILE = os.path.join("data", "shop_data.json")
-    WHITELIST_FILE = os.path.join("data", "whitelist_cmds.json")
-
     # ── Special User IDs ────────────────────────────────────
     WHITELIST_IDS = {992399209686892604}
     THATDAY_ONLY_ID = 1406738792726925494
