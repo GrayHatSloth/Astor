@@ -1,5 +1,7 @@
 import json
 import os
+import socket
+import urllib.parse
 
 import psycopg2
 import psycopg2.extras
@@ -23,9 +25,42 @@ class Database:
         self.conn = None
 
         if self.enabled:
-            self.conn = psycopg2.connect(self.url, sslmode="require")
+            self.conn = self._connect(self.url)
             self.conn.autocommit = True
             self._ensure_tables()
+
+    def _connect(self, url):
+        try:
+            return psycopg2.connect(url, sslmode="require")
+        except psycopg2.OperationalError as exc:
+            message = str(exc)
+            if "Network is unreachable" not in message:
+                raise
+
+            parsed = urllib.parse.urlparse(url)
+            host = parsed.hostname
+            port = parsed.port or 5432
+            dbname = parsed.path.lstrip("/") or "postgres"
+            user = urllib.parse.unquote(parsed.username) if parsed.username else None
+            password = urllib.parse.unquote(parsed.password) if parsed.password else None
+
+            if not host:
+                raise
+
+            addrs = socket.getaddrinfo(host, port, family=socket.AF_INET, type=socket.SOCK_STREAM)
+            if not addrs:
+                raise
+
+            hostaddr = addrs[0][4][0]
+            return psycopg2.connect(
+                host=host,
+                hostaddr=hostaddr,
+                port=port,
+                dbname=dbname,
+                user=user,
+                password=password,
+                sslmode="require",
+            )
 
     def _ensure_tables(self):
         with self.conn.cursor() as cursor:
