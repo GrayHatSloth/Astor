@@ -19,6 +19,20 @@ if dotenv_path.exists():
 class Config:
     """Single source of truth for every tuneable value in the bot."""
 
+    # ── Data directory and persistence ──────────────────────
+    # If the deployment environment provides a persistent volume, set DATA_PATH
+    # to that mount and data will be stored there instead of the repo folder.
+    DATA_ROOT = Path(os.getenv("DATA_PATH", project_root / "data")).resolve()
+    DATA_ROOT.mkdir(parents=True, exist_ok=True)
+
+    POINTS_FILE = str(DATA_ROOT / "points.json")
+    SHOP_FILE = str(DATA_ROOT / "shop.json")
+    SHOP_DATA_FILE = str(DATA_ROOT / "shop_data.json")
+    WHITELIST_FILE = str(DATA_ROOT / "whitelist_cmds.json")
+
+    # ── External persistence ─────────────────────────────────
+    DATABASE_URL = os.getenv("DATABASE_URL")
+
     # ── Secret ──────────────────────────────────────────────
     TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("DISCORD_TOKEN")
     if TOKEN is None:

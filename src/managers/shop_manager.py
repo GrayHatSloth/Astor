@@ -12,6 +12,7 @@ import time
 import discord
 
 from config import Config
+from src.db import Database
 
 
 class ShopManager:
@@ -19,6 +20,7 @@ class ShopManager:
 
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
         self.items = {}
         self.data = {}
         self._enabled_items_cache = None
@@ -28,7 +30,15 @@ class ShopManager:
     # ── Persistence ─────────────────────────────────────────
 
     def load_shop(self):
-        """Load the item catalogue from disk."""
+        """Load the item catalogue from disk or the configured database."""
+        if self.db.enabled:
+            self.items = self.db.load_json("shop_items", {})
+            if not isinstance(self.items, dict):
+                self.items = {}
+            if not self.items:
+                self.create_default_items()
+            return
+
         if os.path.exists(Config.SHOP_FILE):
             with open(Config.SHOP_FILE, "r") as f:
                 try:
@@ -40,13 +50,22 @@ class ShopManager:
             self.create_default_items()
 
     def save_shop(self):
+        if self.db.enabled:
+            self.db.save_json("shop_items", self.items)
+            self.invalidate_cache()
+            return
+
         with open(Config.SHOP_FILE, "w") as f:
             json.dump(self.items, f, indent=4)
         self.invalidate_cache()
 
     def load_data(self):
         """Load purchase history and nickname requests."""
-        if os.path.exists(Config.SHOP_DATA_FILE):
+        if self.db.enabled:
+            self.data = self.db.load_json("shop_data", {})
+            if not isinstance(self.data, dict):
+                self.data = {}
+        elif os.path.exists(Config.SHOP_DATA_FILE):
             with open(Config.SHOP_DATA_FILE, "r") as f:
                 try:
                     self.data = json.load(f)
@@ -54,11 +73,16 @@ class ShopManager:
                     self.data = {}
         else:
             self.data = {}
+
         self.data.setdefault("nickname_requests", {})
         self.data.setdefault("purchase_history", {})
         self.save_data()
 
     def save_data(self):
+        if self.db.enabled:
+            self.db.save_json("shop_data", self.data)
+            return
+
         with open(Config.SHOP_DATA_FILE, "w") as f:
             json.dump(self.data, f, indent=4)
 

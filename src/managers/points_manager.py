@@ -11,6 +11,7 @@ import random
 import time
 
 from config import Config
+from src.db import Database
 from src.utils.challenges import (
     NORMAL_CHALLENGES,
     EVENT_CHALLENGES,
@@ -23,6 +24,7 @@ class PointsManager:
 
     def __init__(self, bot):
         self.bot = bot
+        self.db = Database()
         self.data = {}
         self._leaderboard_cache = None
         self.load_points()
@@ -30,7 +32,13 @@ class PointsManager:
     # ── Persistence ─────────────────────────────────────────
 
     def load_points(self):
-        """Load the points JSON file from disk."""
+        """Load the points JSON file from disk or from the configured database."""
+        if self.db.enabled:
+            self.data = self.db.load_json("points_data", {})
+            if not isinstance(self.data, dict):
+                self.data = {}
+            return
+
         if os.path.exists(Config.POINTS_FILE):
             with open(Config.POINTS_FILE, "r") as f:
                 try:
@@ -41,7 +49,12 @@ class PointsManager:
             self.data = {}
 
     def save_points(self):
-        """Write the current points data to disk."""
+        """Write the current points data to disk or to the configured database."""
+        if self.db.enabled:
+            self.db.save_json("points_data", self.data)
+            self.invalidate_leaderboard_cache()
+            return
+
         with open(Config.POINTS_FILE, "w") as f:
             json.dump(self.data, f, indent=4)
 

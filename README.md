@@ -1,6 +1,6 @@
 # Astor Discord Bot
 
-Astor is a Discord bot designed for a single guild with a focus on community engagement and gamified interaction. It provides a points-based economy, daily rewards, challenge tracking, a shop system, and weekly event management.
+Astor is a Discord bot designed for servers with a focus on community engagement and gamified interaction. It provides a points-based economy, daily rewards, challenge tracking, a shop system, and weekly event management.
 
 The bot supports administrative controls for managing guild activity, including event lifecycle commands and direct adjustment of user statistics. It is built using Discord bot libraries and includes a web health endpoint for deployment environments.
 
@@ -13,3 +13,5 @@ Primary components:
 - Admin-only commands for configuration and moderation
 
 This repository is structured to separate command registration, event handling, and manager logic, making it easier to maintain and extend the bot’s functionality.
+
+The bot supports external persistence through a PostgreSQL connection string in `DATABASE_URL`. When configured, the bot stores points, shop items, purchase history and nickname requests in the external database, instead of relying on local JSON files.
