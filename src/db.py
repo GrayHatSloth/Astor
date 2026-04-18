@@ -47,14 +47,21 @@ class Database:
             if not host:
                 raise
 
-            addrs = socket.getaddrinfo(host, port, family=socket.AF_INET, type=socket.SOCK_STREAM)
+            try:
+                addrs = socket.getaddrinfo(host, port, family=socket.AF_INET, type=socket.SOCK_STREAM)
+            except socket.gaierror as err:
+                raise psycopg2.OperationalError(
+                    f"Unable to resolve IPv4 address for {host}: {err}"
+                ) from err
+
             if not addrs:
-                raise
+                raise psycopg2.OperationalError(
+                    f"No IPv4 address found for {host}; connection may require IPv6."
+                )
 
             hostaddr = addrs[0][4][0]
             return psycopg2.connect(
-                host=host,
-                hostaddr=hostaddr,
+                host=hostaddr,
                 port=port,
                 dbname=dbname,
                 user=user,
