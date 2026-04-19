@@ -37,6 +37,16 @@ class ShopManager:
                 self.items = {}
             if not self.items:
                 self.create_default_items()
+            elif "timeout_token" not in self.items:
+                self.items["timeout_token"] = {
+                    "name": "⌛ One-Time Timeout Token",
+                    "description": "Buy this once to timeout another user for 5 minutes. You can only hold one token at a time.",
+                    "price": 650,
+                    "type": "timeout_token",
+                    "stock": -1,
+                    "enabled": True,
+                }
+                self.db.save_json("shop_items", self.items)
             return
 
         if os.path.exists(Config.SHOP_FILE):
@@ -45,6 +55,16 @@ class ShopManager:
                     self.items = json.load(f)
                 except json.JSONDecodeError:
                     self.items = {}
+            if "timeout_token" not in self.items:
+                self.items["timeout_token"] = {
+                    "name": "⌛ One-Time Timeout Token",
+                    "description": "Buy this once to timeout another user for 5 minutes. You can only hold one token at a time.",
+                    "price": 650,
+                    "type": "timeout_token",
+                    "stock": -1,
+                    "enabled": True,
+                }
+                self.save_shop()
         else:
             self.items = {}
             self.create_default_items()
@@ -76,6 +96,8 @@ class ShopManager:
 
         self.data.setdefault("nickname_requests", {})
         self.data.setdefault("purchase_history", {})
+        self.data.setdefault("owned_items", {})
+        self.data.setdefault("last_timeout_use", {})
         self.save_data()
 
     def save_data(self):
@@ -85,6 +107,42 @@ class ShopManager:
 
         with open(Config.SHOP_DATA_FILE, "w") as f:
             json.dump(self.data, f, indent=4)
+
+    # ── Item ownership helpers ──────────────────────────────
+
+    def get_owned_item_count(self, user_id: int, item_id: str) -> int:
+        return self.data.get("owned_items", {}).get(str(user_id), {}).get(item_id, 0)
+
+    def has_timeout_token(self, user_id: int) -> bool:
+        return self.get_owned_item_count(user_id, "timeout_token") > 0
+
+    def add_owned_item(self, user_id: int, item_id: str, amount: int = 1):
+        self.data.setdefault("owned_items", {})
+        uid = str(user_id)
+        self.data["owned_items"].setdefault(uid, {})
+        self.data["owned_items"][uid][item_id] = (
+            self.data["owned_items"][uid].get(item_id, 0) + amount
+        )
+        self.save_data()
+
+    def consume_owned_item(self, user_id: int, item_id: str, amount: int = 1) -> bool:
+        count = self.get_owned_item_count(user_id, item_id)
+        if count < amount:
+            return False
+        uid = str(user_id)
+        self.data["owned_items"][uid][item_id] = count - amount
+        if self.data["owned_items"][uid][item_id] <= 0:
+            del self.data["owned_items"][uid][item_id]
+        self.save_data()
+        return True
+
+    def get_last_timeout_use(self, user_id: int) -> int:
+        return self.data.get("last_timeout_use", {}).get(str(user_id), 0)
+
+    def record_timeout_use(self, user_id: int):
+        self.data.setdefault("last_timeout_use", {})
+        self.data["last_timeout_use"][str(user_id)] = int(time.time())
+        self.save_data()
 
     # ── Default Items ───────────────────────────────────────
 
@@ -129,6 +187,14 @@ class ShopManager:
                 "price": 80, "type": "role",
                 "role_id": None, "stock": -1, "enabled": True,
                 "max_per_user": 3,
+            },
+            "timeout_token": {
+                "name": "⌛ One-Time Timeout Token",
+                "description": "Buy this once to timeout another user for 5 minutes. You can only hold one token at a time.",
+                "price": 650,
+                "type": "timeout_token",
+                "stock": -1,
+                "enabled": True,
             },
         }
         self.save_shop()
@@ -209,6 +275,8 @@ class ShopManager:
             return False, reason, []
 
         item = self.get_item(item_id)
+        if item["type"] == "timeout_token" and self.has_timeout_token(user_id):
+            return False, "You already own a timeout token. Use it before buying another.", []
 
         # Apply the gameplay effect first
         success = await self.apply_item_effect(user_id, item)
@@ -222,6 +290,9 @@ class ShopManager:
 
         if item["type"] == "nickname":
             self.add_nickname_request(user_id, requested_nickname)
+
+        if item["type"] == "timeout_token":
+            self.add_owned_item(user_id, "timeout_token")
 
         self.record_purchase(user_id, item_id)
 
@@ -296,6 +367,9 @@ class ShopManager:
                     await ch.set_permissions(member, read_messages=True)
                     return True
                 return False
+
+            elif item_type == "timeout_token":
+                return True
 
             return True  # Unknown types succeed silently
 
