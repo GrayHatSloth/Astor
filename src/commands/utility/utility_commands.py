@@ -103,11 +103,6 @@ async def setup(bot):
         )
 
     @bot.tree.command(
-        name="botstatus",
-        description="Show the current bot process and session info",
-        guild=discord.Object(id=Config.GUILD_ID),
-    )
-    @bot.tree.command(
         name="inventory",
         description="View your owned shop items",
         guild=discord.Object(id=Config.GUILD_ID),
