@@ -52,6 +52,7 @@ from src.managers.effect_manager import EffectManager
 from src.managers.mode_manager import ModeManager
 from src.managers.twist_manager import WeeklyTwistManager
 from src.handlers import prefix_handler
+from src.engine import AstorEngine
 
 # ── Event setup functions ───────────────────────────────────
 from src.events.on_ready import setup as setup_on_ready
@@ -109,11 +110,14 @@ def main():
         "prefix_handler": prefix_handler,
     }
 
+    # ── Engine (central routing hub) ────────────────────────
+    engine = AstorEngine(bot, managers)
+
     # ── Register event handlers ─────────────────────────────
     setup_on_ready(bot, managers)
-    setup_on_message(bot, managers)
+    setup_on_message(bot, engine)
     setup_on_message_delete(bot)
-    setup_on_reaction(bot, managers)
+    setup_on_reaction(bot, engine)
     setup_on_voice(bot, points_manager)
 
     # ── Run ─────────────────────────────────────────────────

@@ -64,6 +64,9 @@ def setup(bot, managers):
             except Exception as e:
                 logger.error("Command sync failed: %s", e)
 
+            # Restore any effect that was active before last restart
+            em.restore_effect_state()
+
             # Start background loops (once per lifetime)
             if not bot.loops_started:
                 bot.loop.create_task(em.chaos_button_loop())

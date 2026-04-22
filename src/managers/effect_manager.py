@@ -7,11 +7,15 @@
 # ============================================================
 
 import asyncio
+import json
 import logging
+import pathlib
 import random
 import time
 
 from config import Config
+
+_STATE_FILE = pathlib.Path(__file__).resolve().parent.parent.parent / "data" / "effect_state.json"
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +91,7 @@ class EffectManager:
         self.active_effect  = effect
         self.effect_end_time = time.time() + effect["duration"]
         self.enforcement.set_effect(effect)
+        self._persist_effect()
 
         await channel.send(self._format_effect_message(effect))
 
@@ -112,7 +117,49 @@ class EffectManager:
                 self.active_effect = None
                 self.effect_end_time = None
                 self.enforcement.set_effect(None)
+                self._persist_effect()
                 logger.info("Active effect expired.")
+
+    # ── State Persistence ────────────────────────────────────
+
+    def _persist_effect(self):
+        """Write the current effect state to disk so it survives restarts."""
+        state = (
+            {"effect": self.active_effect, "end_time": self.effect_end_time}
+            if self.active_effect
+            else {}
+        )
+        try:
+            _STATE_FILE.write_text(json.dumps(state))
+        except OSError as exc:
+            logger.warning("Could not save effect state: %s", exc)
+
+    def restore_effect_state(self):
+        """Load and re-apply a previously active effect on startup."""
+        if not _STATE_FILE.exists():
+            return
+        try:
+            state = json.loads(_STATE_FILE.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("Could not load effect state: %s", exc)
+            return
+
+        if not state:
+            return
+
+        end_time = state.get("end_time", 0)
+        if time.time() >= end_time:
+            # Effect already expired while the bot was offline — clear file
+            _STATE_FILE.write_text("{}")
+            logger.info("Saved effect had already expired; cleared.")
+            return
+
+        effect = state["effect"]
+        self.active_effect   = effect
+        self.effect_end_time = end_time
+        self.enforcement.set_effect(effect)
+        remaining = int(end_time - time.time())
+        logger.info("Restored active effect: %s (%ds remaining)", effect["type"], remaining)
 
     # ── Helpers ─────────────────────────────────────────────
 
