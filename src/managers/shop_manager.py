@@ -6,6 +6,7 @@
 # ============================================================
 
 import json
+import logging
 import os
 import time
 
@@ -13,6 +14,8 @@ import discord
 
 from config import Config
 from src.db import Database
+
+logger = logging.getLogger(__name__)
 
 
 class ShopManager:
@@ -374,7 +377,7 @@ class ShopManager:
             return True  # Unknown types succeed silently
 
         except Exception as e:
-            print(f"[SHOP] Error applying item effect: {e}")
+            logger.warning("Error applying item effect: %s", e)
             return False
 
     # ── Nickname Requests ───────────────────────────────────

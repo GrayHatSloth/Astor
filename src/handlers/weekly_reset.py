@@ -7,6 +7,9 @@
 
 import asyncio
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 async def weekly_reset_loop(bot, mode_manager, twist_manager):
@@ -55,4 +58,4 @@ async def weekly_reset_loop(bot, mode_manager, twist_manager):
             if gen:
                 await twist_manager.start_twist(gen)
         else:
-            print("[RESET] Skipped — a weekly mode is still active.")
+            logger.warning("Weekly reset skipped — a mode is still active.")

@@ -6,9 +6,12 @@
 # tracks messages / words / replies to crown a winner.
 # ============================================================
 
+import logging
 import random
 
 import discord
+
+logger = logging.getLogger(__name__)
 
 
 class WeeklyTwistManager:
@@ -26,11 +29,14 @@ class WeeklyTwistManager:
     async def start_twist(self, channel) -> bool:
         """Send the '✅ click to start' message. Returns False if already running."""
         if self.pending_twist or self.active_twist:
-            print("[TWIST] Already pending or active.")
+            logger.warning("start_twist called but already pending or active.")
             return False
 
         self.pending_twist = True
-        msg = await channel.send("✅ Click this button to start the weekly twist!")
+        msg = await channel.send(
+            "@everyone\n"
+            "✅ **A weekly twist is available!** Click the button below to start it."
+        )
         await msg.add_reaction("✅")
         self.bot.button_message_id = msg.id
         return True
@@ -70,7 +76,7 @@ class WeeklyTwistManager:
         }.get(twist_type, twist_type)
 
         await channel.send(
-            f"🏆 Weekly Twist ended! {name} wins with **{self.data[winner_id]}** ({label})!"
+            f"@everyone\n🏆 **Weekly Twist ended!** {name} wins with **{self.data[winner_id]}** ({label})!"
         )
         self.active_twist = None
 

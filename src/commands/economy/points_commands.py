@@ -9,10 +9,13 @@
 # /trackchallenges — view active challenge progress
 # ============================================================
 
+import logging
 import time
 
 import discord
 from discord import app_commands
+
+logger = logging.getLogger(__name__)
 
 from config import Config
 from src.utils.helpers import create_progress_bar
@@ -61,7 +64,7 @@ async def setup(bot, points_manager):
             await interaction.response.defer()
             await interaction.followup.send(embed=embed)
         except (discord.NotFound, discord.HTTPException) as exc:
-            print(f"[CMD] points_cmd error: {exc}")
+            logger.error("points_cmd error: %s", exc)
 
     # ── /leaderboard ────────────────────────────────────────
 

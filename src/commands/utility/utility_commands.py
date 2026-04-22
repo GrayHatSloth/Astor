@@ -4,8 +4,9 @@
 # /botstatus — show PID, latency, guild, and session info
 # ============================================================
 
-import os
 import datetime
+import os
+import time
 
 import discord
 
@@ -149,3 +150,71 @@ async def setup(bot):
             f"Session: {session}"
         )
         await interaction.response.send_message(text, ephemeral=True)
+
+    @bot.tree.command(
+        name="state",
+        description="Show the current weekly mode, twist, and active enforcement",
+        guild=discord.Object(id=Config.GUILD_ID),
+    )
+    async def state(interaction: discord.Interaction):
+        mm = interaction.client.mode_manager
+        tm = interaction.client.weekly_twist_manager
+        em = interaction.client.effect_manager
+
+        embed = discord.Embed(title="Bot State", color=discord.Color.blurple())
+
+        # ── Weekly mode ──────────────────────────────────────────
+        mode = mm.active_mode
+        if mode:
+            mode_type = mode["type"].replace("_", " ").title()
+            detail    = ""
+            if mode["type"] == "debate":
+                detail = f"\nTopic: **{mode.get('topic', '?')}**"
+            elif mode["type"] == "profile_comp":
+                detail = f"\nCategory: **{mode.get('category', '?').upper()}**"
+            elif mode["type"] == "mystery":
+                day   = mode.get("current_day", -1) + 1
+                total = len(mode.get("mysteries", []))
+                solved = mode.get("solved", True)
+                status = "Solved" if solved else "Active — guesses open"
+                detail = f"\nDay **{day}/{total}** — {status}"
+            elif mode["type"] == "button_frenzy":
+                clicks = mode.get("clicks", {})
+                detail = f"\nTotal button presses: **{sum(clicks.values())}**"
+            embed.add_field(name="Weekly Mode", value=f"**{mode_type}**{detail}", inline=False)
+        else:
+            embed.add_field(name="Weekly Mode", value="None active", inline=False)
+
+        # ── Weekly twist ─────────────────────────────────────────
+        twist = tm.active_twist
+        if twist:
+            twist_label = twist["type"].replace("_", " ").title()
+            if twist["type"] == "first_to_x":
+                twist_label += f" ({tm.first_to_x_target} messages)"
+            embed.add_field(name="Weekly Twist", value=f"**{twist_label}**", inline=False)
+        elif tm.pending_twist:
+            embed.add_field(name="Weekly Twist", value="Pending (button not yet clicked)", inline=False)
+        else:
+            embed.add_field(name="Weekly Twist", value="None active", inline=False)
+
+        # ── Active chaos effect ───────────────────────────────────
+        effect = em.active_effect
+        if effect and em.effect_end_time:
+            remaining_secs = max(0, int(em.effect_end_time - time.time()))
+            mins, secs     = divmod(remaining_secs, 60)
+            effect_label   = effect["type"].replace("_", " ").title()
+            if effect["type"] == "must_include":
+                effect_label += f" '{effect.get('word', '')}'"
+            elif effect["type"] == "max_words":
+                effect_label += f" ({effect.get('limit', '?')} words)"
+            elif effect["type"] == "no_letter":
+                effect_label += f" '{effect.get('letter', '')}'"
+            embed.add_field(
+                name="Chaos Effect",
+                value=f"**{effect_label}** — expires in {mins}m {secs}s",
+                inline=False,
+            )
+        else:
+            embed.add_field(name="Chaos Effect", value="None active", inline=False)
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)

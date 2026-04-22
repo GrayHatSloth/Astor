@@ -5,11 +5,14 @@
 # Syncs slash commands and starts background loops.
 # ============================================================
 
+import logging
 import os
 
 import discord
 
 from config import Config
+
+logger = logging.getLogger(__name__)
 
 # These will be injected at setup time
 from src.commands.weekly  import weekly_commands
@@ -33,16 +36,16 @@ def setup(bot, managers):
 
     @bot.event
     async def on_ready():
-        print(f"Bot online: {bot.user}")
-        print(f"[READY] PID: {os.getpid()}")
-        print("[READY] uploaded successfully")
+        logger.info("Bot online: %s", bot.user)
+        logger.info("PID: %s", os.getpid())
+        logger.info("Deployed successfully")
 
         conn = getattr(bot, "_connection", None)
-        print(f"[READY] Session: {getattr(conn, 'session_id', 'unknown') if conn else 'unknown'}")
+        logger.info("Session: %s", getattr(conn, "session_id", "unknown") if conn else "unknown")
 
         if bot.guilds:
             bot.guild = bot.guilds[0]
-            print(f"[READY] Connected to guild: {bot.guild.name}")
+            logger.info("Connected to guild: %s", bot.guild.name)
 
             # Register slash commands (once per lifetime)
             if not getattr(bot, "commands_registered", False):
@@ -57,9 +60,9 @@ def setup(bot, managers):
             try:
                 guild_obj = discord.Object(id=Config.GUILD_ID)
                 synced = await bot.tree.sync(guild=guild_obj)
-                print(f"[READY] Synced {len(synced)} guild commands")
+                logger.info("Synced %s guild commands", len(synced))
             except Exception as e:
-                print(f"[READY] Command sync failed: {e}")
+                logger.error("Command sync failed: %s", e)
 
             # Start background loops (once per lifetime)
             if not bot.loops_started:
@@ -71,9 +74,9 @@ def setup(bot, managers):
                 bot.loop.create_task(weekly_reset_loop(bot, mm, tm))
 
                 bot.loops_started = True
-                print("[READY] Background loops started.")
+                logger.info("Background loops started.")
             else:
-                print("[READY] Loops already running, skipping.")
+                logger.debug("Loops already running, skipping.")
         else:
             bot.guild = None
-            print("[READY] No guild found!")
+            logger.warning("No guild found!")

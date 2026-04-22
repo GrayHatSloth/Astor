@@ -5,6 +5,7 @@
 # event handlers, and runs.
 # ============================================================
 
+import logging
 import os
 import sys
 import threading
@@ -16,6 +17,14 @@ sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "src"))
 if project_root.name == "src":
     sys.path.insert(0, str(project_root.parent))
+
+# ── Logging setup ────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("astor")
 
 import discord
 from discord.ext import commands
@@ -65,7 +74,7 @@ def main():
     # ── Bot instance ────────────────────────────────────────
     bot = commands.Bot(command_prefix=Config.COMMAND_PREFIXES, intents=intents)
     bot.config = Config
-    print("[INFO] Starting Astor bot...")
+    logger.info("Starting Astor bot...")
 
     # ── Instantiate managers ────────────────────────────────
     enforcement = Enforcement(bot)

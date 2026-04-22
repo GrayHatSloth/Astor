@@ -6,9 +6,14 @@
 # enforcement effect and awards frenzy points.
 # ============================================================
 
+import asyncio
+import logging
 import random
 import time
-import asyncio
+
+from config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class EffectManager:
@@ -48,8 +53,8 @@ class EffectManager:
                 await asyncio.sleep(10)
                 continue
 
-            # Wait 3-5 hours before spawning the next button
-            await asyncio.sleep(random.randint(10800, 18000))
+            # Wait between spawns (configurable via Config)
+            await asyncio.sleep(random.randint(Config.CHAOS_BUTTON_MIN_INTERVAL, Config.CHAOS_BUTTON_MAX_INTERVAL))
 
             channel = self.bot.get_channel(self.bot.config.GENERAL_CHANNEL_ID)
             if not channel:
@@ -58,7 +63,7 @@ class EffectManager:
             msg = await channel.send("🔘 A mysterious button appeared... Press it.")
             await msg.add_reaction("🔘")
             self.chaos_buttons[msg.id] = {"active": True}
-            print(f"[EFFECT] Spawned chaos button: {msg.id}")
+            logger.info("Spawned chaos button: %s", msg.id)
 
     # ── Handle a Button Press ───────────────────────────────
 
@@ -93,7 +98,7 @@ class EffectManager:
             self.bot.points_manager.add_points(user_id, "button_frenzy_click")
             self.bot.points_manager.update_challenge_progress(user_id, "event", "button_clicks")
 
-        print(f"[EFFECT] Activated: {effect}")
+        logger.info("Activated effect: %s", effect)
 
     # ── Background Loop: Expire Effects ─────────────────────
 
@@ -107,7 +112,7 @@ class EffectManager:
                 self.active_effect = None
                 self.effect_end_time = None
                 self.enforcement.set_effect(None)
-                print("[EFFECT] Active effect expired.")
+                logger.info("Active effect expired.")
 
     # ── Helpers ─────────────────────────────────────────────
 

@@ -57,3 +57,18 @@ class Config:
     # ── Special User IDs ────────────────────────────────────
     WHITELIST_IDS = {992399209686892604}
     THATDAY_ONLY_ID = 1406738792726925494
+
+    # ── Mystery mode ─────────────────────────────────────────
+    MYSTERY_CHANNEL_ID             = 1496545158202659077  # dedicated guess channel
+    MYSTERY_CLUE_INTERVAL_SECONDS  = 28800  # 8 h between each clue reveal
+    MYSTERY_FINAL_GUESS_SECONDS    = 28800  # 8 h window after the final clue (24 h total per mystery)
+    MYSTERY_GUESS_COOLDOWN_SECONDS = 5      # min seconds between wrong guesses per user
+    MYSTERY_DAY_DURATION_SECONDS   = 86400  # 24 h — one mystery per day, 7 days per week
+
+    # ── Button Frenzy ────────────────────────────────────────
+    CHAOS_BUTTON_MIN_INTERVAL      = 10800  # 3 h minimum between chaos button spawns
+    CHAOS_BUTTON_MAX_INTERVAL      = 18000  # 5 h maximum between chaos button spawns
+
+    # ── Timeout token ────────────────────────────────────────
+    TIMEOUT_TOKEN_DURATION_MINUTES = 5      # how long a timeout-token mute lasts
+    TIMEOUT_TOKEN_COOLDOWN_SECONDS = 3600   # 1 h between uses of a token

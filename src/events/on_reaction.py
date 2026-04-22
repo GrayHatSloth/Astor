@@ -58,7 +58,9 @@ def setup(bot, managers):
                     "most_words":   "📝 Send the most words this week to win!",
                     "most_replies": "💬 Get the most replies to your messages to win!",
                 }
-                await channel.send(f"🎉 Weekly Twist Started: {labels[twist_type]}")
+                await channel.send(
+                    f"@everyone\n🎉 **Weekly Twist Started!** {labels[twist_type]}"
+                )
 
             # Remove the user's reaction so the button stays clean
             member = await guild.fetch_member(payload.user_id)

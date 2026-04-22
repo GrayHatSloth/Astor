@@ -6,22 +6,135 @@
 # mystery-clue loop, and ends Button Frenzy with a winner.
 # ============================================================
 
-import random
 import asyncio
+import logging
+import random
 import time
 
 import discord
 
 from config import Config
 
+logger = logging.getLogger(__name__)
+
 
 class ModeManager:
     """Orchestrates weekly game modes and their channel states."""
 
-    # All six available modes
+    # ── All available modes ──────────────────────────────────
     MODE_TYPES = [
         "invite_comp", "debate", "movie_night",
         "profile_comp", "button_frenzy", "mystery",
+    ]
+
+    # ── Mystery pool ─────────────────────────────────────────
+    # Each entry has an "answer" (exact single word) and 3 clues.
+    # Clues are intentionally abstract — no obvious hints.
+    # Clue 1 is sent immediately; clue 2 after 8 h; clue 3 after 16 h.
+    # Answer is revealed at 24 h if still unsolved.
+    MYSTERIES = [
+        {
+            "answer": "horizon",
+            "clues": [
+                "The closer you come to me, the further I retreat.",
+                "I exist in every direction at once, yet I occupy no single point.",
+                "Sailors have chased me for centuries. No one has ever arrived.",
+            ],
+        },
+        {
+            "answer": "question",
+            "clues": [
+                "Answer me completely and I produce more of myself.",
+                "I am born the moment you realise you do not know something.",
+                "I am the seed of all knowledge, yet I contain none.",
+            ],
+        },
+        {
+            "answer": "gravity",
+            "clues": [
+                "I have no colour, no taste, no smell — yet nothing in the universe ignores me.",
+                "I bend light itself and collapse dying stars.",
+                "Without me, you would float off this earth and the moon would vanish into space.",
+            ],
+        },
+        {
+            "answer": "memory",
+            "clues": [
+                "I can resurrect the dead and return you to places that no longer exist.",
+                "I am not always accurate — yet you trust me more than any witness.",
+                "The harder you try to hold me, the more I change.",
+            ],
+        },
+        {
+            "answer": "secret",
+            "clues": [
+                "Share me once and I shrink. Share me twice and I vanish entirely.",
+                "I can bind people together or destroy them — without a single action.",
+                "Everyone carries me. No one admits it.",
+            ],
+        },
+        {
+            "answer": "language",
+            "clues": [
+                "I can make a stranger feel at home and a brother feel like an enemy.",
+                "I have no shape, yet I build empires and start wars.",
+                "I was born before writing, yet I carry all human knowledge.",
+            ],
+        },
+        {
+            "answer": "darkness",
+            "clues": [
+                "I am not a thing — yet I fill every space that light abandons.",
+                "Remove me and nothing in the room changes, only how you see it.",
+                "I existed before the first fire was ever lit.",
+            ],
+        },
+        {
+            "answer": "future",
+            "clues": [
+                "Everyone travels toward me at the same speed, yet no one has ever arrived.",
+                "I am made of nothing, yet every action in history is taken in my name.",
+                "The moment you believe you have reached me, I become something else.",
+            ],
+        },
+        {
+            "answer": "trust",
+            "clues": [
+                "I take years to build and a single moment to destroy.",
+                "You cannot see me — but you feel my absence instantly.",
+                "Without me, no team, no friendship, no civilisation can stand.",
+            ],
+        },
+        {
+            "answer": "idea",
+            "clues": [
+                "I weigh nothing, yet I have started revolutions and ended dynasties.",
+                "I travel from mind to mind without a body or a vehicle.",
+                "Once I exist, I am impossible to fully destroy — even if the one who had me dies.",
+            ],
+        },
+        {
+            "answer": "reflection",
+            "clues": [
+                "I appear wherever water is perfectly still, yet I do not live in the water.",
+                "I copy you with perfect accuracy but reverse everything you are.",
+                "Shatter my surface and I multiply — but I never truly disappear.",
+            ],
+        },
+    ]
+
+    # ── Debate topics ────────────────────────────────────────
+    DEBATE_TOPICS = [
+        "Is school useful?",
+        "Cats vs dogs — which is the better pet?",
+        "Is AI dangerous for society?",
+        "What is the world's best cuisine?",
+        "TV shows vs movies — which is better?",
+        "Is social media doing more harm than good?",
+        "Is it better to be early or fashionably late?",
+        "Morning person vs night owl — which is better?",
+        "Should homework be abolished?",
+        "Is fame worth the loss of privacy?",
     ]
 
     def __init__(self, bot, twist_manager):
@@ -29,8 +142,13 @@ class ModeManager:
         self.twist_manager = twist_manager
         self.active_mode = None
 
-        # Anti-spam for mystery guesses
-        self.last_guess_time = {}
+        # Task for the current day's clue reveal loop
+        self._mystery_task = None
+        # Task for the overall 7-day week loop
+        self._mystery_week_task = None
+
+        # Per-user timestamp of last wrong guess (rate-limit spam)
+        self._wrong_guess_time = {}
 
     # ── Start a Weekly Mode ─────────────────────────────────
 
@@ -40,37 +158,38 @@ class ModeManager:
         Returns False if a mode is already running.
         """
         if self.active_mode is not None:
-            print("[MODE] start_weekly_mode called while one is already active.")
+            logger.warning("start_weekly_mode called while a mode is already active.")
             return False
 
-        # Lock every mode channel, then unlock the relevant one
+        # Lock every mode channel before deciding which one to open
         await self._update_channel_states(None)
 
         mode_type = forced_mode or random.choice(self.MODE_TYPES)
         announce  = self.bot.get_channel(Config.ANNOUNCEMENT_CHANNEL_ID)
+        logger.info("Starting weekly mode: %s", mode_type)
 
         # ── Invite Competition ──────────────────────────────
         if mode_type == "invite_comp":
             self.active_mode = {"type": "invite_comp"}
             await self._update_channel_states(Config.INVITE_CHANNEL_ID)
-            await announce.send("📨 Weekly Mode: Invite Competition! Invite the most users to win.")
+            if announce:
+                await announce.send(
+                    "@everyone\n"
+                    "📨 **Weekly Mode: Invite Competition!** "
+                    "Invite the most new members this week to win."
+                )
             ch = self.bot.get_channel(Config.INVITE_CHANNEL_ID)
             if ch:
-                await ch.send("📨 Invite Competition has started! Track your invites!")
+                await ch.send("@everyone\n📨 Invite Competition has started! Track your invites here.")
 
         # ── Debate ──────────────────────────────────────────
         elif mode_type == "debate":
-            topic = random.choice([
-                "Is school useful?", "Cats vs dogs", "Is AI dangerous?",
-                "What is the best cuisine?", "TV shows vs movies",
-                "Is social media harmful?", "Is it better to be early or late?",
-                "Is it better to be a morning person or a night owl?",
-            ])
+            topic = random.choice(self.DEBATE_TOPICS)
             self.active_mode = {"type": "debate", "topic": topic}
             await self._update_channel_states(Config.DEBATE_CHANNEL_ID)
             ch = self.bot.get_channel(Config.DEBATE_CHANNEL_ID)
             if ch:
-                await ch.send(f"🗣 Weekly Debate!\nTopic: **{topic}**")
+                await ch.send(f"@everyone\n🗣 **Weekly Debate!**\nThis week's topic: **{topic}**")
 
         # ── Movie / Game Night ──────────────────────────────
         elif mode_type == "movie_night":
@@ -78,7 +197,7 @@ class ModeManager:
             await self._update_channel_states(Config.MOVIE_CHANNEL_ID)
             ch = self.bot.get_channel(Config.MOVIE_CHANNEL_ID)
             if ch:
-                await ch.send("🎬 Weekly Mode: Movie/Game Night! Stay tuned.")
+                await ch.send("@everyone\n🎬 **Weekly Mode: Movie/Game Night!** Stay tuned for details.")
 
         # ── Profile Competition ─────────────────────────────
         elif mode_type == "profile_comp":
@@ -87,56 +206,271 @@ class ModeManager:
             await self._update_channel_states(Config.PROFILE_COMP_CHANNEL_ID)
             ch = self.bot.get_channel(Config.PROFILE_COMP_CHANNEL_ID)
             if ch:
-                await ch.send(f"🏆 Weekly Mode: Profile Competition!\nBest **{category.upper()}** wins!")
+                await ch.send(f"@everyone\n🏆 **Weekly Mode: Profile Competition!**\nBest **{category.upper()}** wins this week!")
 
         # ── Button Frenzy ───────────────────────────────────
         elif mode_type == "button_frenzy":
             self.active_mode = {"type": "button_frenzy", "clicks": {}}
             await self._update_channel_states(None)
-            await announce.send(
-                "🔥 Weekly Mode: Button Frenzy!\n"
-                "Press the chaos buttons as much as possible throughout the week!\n"
-                "Chaos buttons will spawn every 3-5 hours."
-            )
+            if announce:
+                await announce.send(
+                    "@everyone\n"
+                    "🔥 **Weekly Mode: Button Frenzy!**\n"
+                    "Press the chaos buttons as much as possible throughout the week!\n"
+                    f"Chaos buttons will spawn every "
+                    f"{Config.CHAOS_BUTTON_MIN_INTERVAL // 3600}–"
+                    f"{Config.CHAOS_BUTTON_MAX_INTERVAL // 3600} hours."
+                )
 
         # ── Mystery Solving ─────────────────────────────────
         elif mode_type == "mystery":
-            mystery = random.choice([
-                {"answer": "shadow", "clues": ["I follow you", "I disappear in darkness", "I appear with light"]},
-                {"answer": "time",   "clues": ["I never stop", "You can't see me", "I heal everything"]},
-                {"answer": "echo",   "clues": ["I repeat you", "I live in caves", "I copy your voice"]},
-                {"answer": "wind",   "clues": ["I can be gentle or strong", "You can feel me but not see me", "I move the trees"]},
-                {"answer": "mirror", "clues": ["I reflect you", "I can show your true self", "I copy your image"]},
-                {"answer": "book",   "clues": ["I hold knowledge", "I have many pages", "I tell stories"]},
-                {"answer": "dream",  "clues": ["I can be sweet or scary", "I happen when you sleep", "I feel real but I'm not"]},
-            ])
-            self.active_mode = {
-                "type": "mystery",
-                "answer": mystery["answer"],
-                "clues": mystery["clues"],
-                "solved": False,
-                "current_clue": 0,
-                "last_clue_time": time.time(),
-            }
-            self.last_guess_time = {}
-            await self._update_channel_states(None)
-            await announce.send(f"🕵️ Weekly Mode: Mystery Solving!\nClue 1: **{mystery['clues'][0]}**")
-            self.bot.loop.create_task(self._reveal_mystery_clues(announce))
+            await self._start_mystery(announce)
 
         return True
 
-    # ── Channel Lock / Unlock ───────────────────────────────
+    # ── Mystery: start ───────────────────────────────────────
+
+    async def _start_mystery(self, announce):
+        """
+        Select 7 distinct mysteries for the week, send the @everyone
+        announcement, and kick off the 7-day week loop.
+        """
+        pool = self.MYSTERIES.copy()
+        random.shuffle(pool)
+        # If we ever have fewer than 7 mysteries, wrap around
+        selected = (pool * 2)[:7]
+
+        # `solved` starts as True so _mystery_active() returns False
+        # until the week loop sets the first daily mystery.
+        self.active_mode = {
+            "type":            "mystery",
+            "mysteries":       selected,
+            "current_day":     -1,
+            "current_mystery": None,
+            "solved":          True,
+            "started":         time.time(),
+        }
+        self._wrong_guess_time = {}
+
+        await self._update_channel_states(Config.MYSTERY_CHANNEL_ID)
+
+        mystery_ch = self.bot.get_channel(Config.MYSTERY_CHANNEL_ID)
+
+        if announce:
+            await announce.send(
+                "@everyone\n"
+                "🕵️ **This week's event: Mystery Solving!**\n"
+                "Every day a brand-new riddle will appear in the mystery channel.\n"
+                "**7 riddles over 7 days** — can you crack them all?"
+            )
+
+        self._mystery_week_task = self.bot.loop.create_task(
+            self._mystery_week_loop(announce, mystery_ch)
+        )
+
+    # ── Mystery: 7-day week loop ─────────────────────────────
+
+    async def _mystery_week_loop(self, announce, mystery_ch):
+        """
+        Run one mystery per day for 7 days.
+        Each day: post clue 1, start the clue loop, wait 24 h, then advance.
+        """
+        try:
+            mysteries = self.active_mode["mysteries"]
+
+            for day_index, mystery in enumerate(mysteries):
+                if not self.active_mode or self.active_mode.get("type") != "mystery":
+                    return
+
+                # Set today's mystery
+                self.active_mode["current_day"]     = day_index
+                self.active_mode["current_mystery"] = mystery
+                self.active_mode["solved"]          = False
+                self._wrong_guess_time              = {}
+
+                interval_hrs = Config.MYSTERY_CLUE_INTERVAL_SECONDS // 3600
+                total_clues  = len(mystery["clues"])
+
+                if mystery_ch:
+                    await mystery_ch.send(
+                        f"@everyone\n"
+                        f"🕵️ **Day {day_index + 1}/7 — New Riddle!**\n"
+                        f"Post your one-word answer in this channel.\n"
+                        f"**Clue 1/{total_clues}:** {mystery['clues'][0]}\n"
+                        f"*(Next clue in {interval_hrs}h — the answer will be revealed after {interval_hrs * total_clues}h if unsolved)*"
+                    )
+
+                # Start this day's clue-reveal task
+                self._mystery_task = self.bot.loop.create_task(
+                    self._mystery_clue_loop(mystery_ch, mystery)
+                )
+
+                # Wait the full day, then move on regardless of solve status
+                await asyncio.sleep(Config.MYSTERY_DAY_DURATION_SECONDS)
+
+                # Cancel the clue loop if it hasn't ended naturally
+                if self._mystery_task and not self._mystery_task.done():
+                    self._mystery_task.cancel()
+                    try:
+                        await self._mystery_task
+                    except asyncio.CancelledError:
+                        pass
+                self._mystery_task = None
+
+            # All 7 days complete
+            if mystery_ch:
+                await mystery_ch.send(
+                    "🏆 **Mystery Week is over!**\n"
+                    "All 7 riddles have been played. Great effort from everyone who guessed!"
+                )
+            if announce:
+                await announce.send(
+                    "@everyone ⏰ **Mystery Week has ended!** See you next week."
+                )
+
+            await self._update_channel_states(None)
+            self.active_mode        = None
+            self._mystery_week_task = None
+            logger.info("Mystery week completed naturally.")
+
+        except asyncio.CancelledError:
+            logger.debug("Mystery week loop cancelled.")
+
+    # ── Mystery: daily clue loop ─────────────────────────────
+
+    async def _mystery_clue_loop(self, channel, mystery):
+        """
+        Reveal the remaining clues for one daily mystery, then expire if
+        nobody solves it.  Takes the mystery dict as a parameter so it
+        stays correct even as active_mode is updated by the week loop.
+
+        Timing (all configurable via Config):
+          Clue 1 sent at 0 h (by _mystery_week_loop)
+          Clue 2 sent at 8 h
+          Clue 3 sent at 16 h  +  "8 h remaining" warning
+          Auto-reveal at 24 h
+        """
+        try:
+            clues  = mystery["clues"]
+            answer = mystery["answer"]
+            total  = len(clues)
+
+            for i in range(1, total):
+                await asyncio.sleep(Config.MYSTERY_CLUE_INTERVAL_SECONDS)
+
+                if not self._mystery_active():
+                    return
+
+                is_last = (i == total - 1)
+                label   = f"Final Clue ({i + 1}/{total})" if is_last else f"Clue {i + 1}/{total}"
+                if channel:
+                    await channel.send(f"🔍 **{label}:** {clues[i]}")
+
+                if is_last and channel:
+                    final_hrs = Config.MYSTERY_FINAL_GUESS_SECONDS // 3600
+                    await channel.send(
+                        f"⚠️ That was the last clue! You have **{final_hrs} hours** to answer."
+                    )
+
+            # Final guess window
+            await asyncio.sleep(Config.MYSTERY_FINAL_GUESS_SECONDS)
+
+            if self._mystery_active() and channel:
+                await channel.send(
+                    f"❌ Nobody solved today's mystery.\n"
+                    f"The answer was **{answer}**."
+                )
+            if self._mystery_active():
+                self.active_mode["solved"] = True
+            self._mystery_task = None
+            logger.info("Mystery day timed out. Answer was: %s", answer)
+
+        except asyncio.CancelledError:
+            logger.debug("Mystery clue loop cancelled.")
+
+    def _mystery_active(self) -> bool:
+        return (
+            self.active_mode is not None
+            and self.active_mode.get("type") == "mystery"
+            and not self.active_mode.get("solved")
+        )
+
+    # ── Mystery: guess handler ───────────────────────────────
+
+    async def handle_message(self, message):
+        """Check if a message posted in the mystery channel is the correct answer."""
+        if not self._mystery_active():
+            return
+
+        # Only accept guesses posted in the dedicated mystery channel
+        if message.channel.id != Config.MYSTERY_CHANNEL_ID:
+            return
+
+        uid     = message.author.id
+        content = message.content.lower().strip()
+        current = self.active_mode.get("current_mystery") or {}
+        answer  = current.get("answer", "").lower()
+
+        if not answer:
+            return
+
+        # Per-user wrong-guess cooldown — silently delete rate-limited guesses
+        now  = time.time()
+        last = self._wrong_guess_time.get(uid, 0)
+        if now - last < Config.MYSTERY_GUESS_COOLDOWN_SECONDS:
+            try:
+                await message.delete()
+            except Exception:
+                pass
+            return
+
+        if content == answer:
+            # Mark solved so the clue loop exits cleanly on cancel
+            self.active_mode["solved"] = True
+
+            if self._mystery_task and not self._mystery_task.done():
+                self._mystery_task.cancel()
+            self._mystery_task = None
+
+            self.bot.points_manager.add_points(uid, "mystery")
+            self.bot.points_manager.add_win(uid)
+
+            day   = self.active_mode.get("current_day", 0) + 1
+            total = len(self.active_mode.get("mysteries", []))
+            await message.channel.send(
+                f"🎉 {message.author.mention} solved **Day {day}/{total}**! "
+                f"The answer was **{answer}**!"
+            )
+            logger.info("Mystery day %s solved by user %s. Answer: %s", day, uid, answer)
+            return
+
+        # Wrong guess — record time to rate-limit future attempts
+        self._wrong_guess_time[uid] = now
+
+    # ── Cancel all mystery tasks ─────────────────────────────
+
+    def cancel_mystery_tasks(self):
+        """Cancel all mystery background tasks (used when forcibly ending mystery mode)."""
+        if self._mystery_task and not self._mystery_task.done():
+            self._mystery_task.cancel()
+        self._mystery_task = None
+        if self._mystery_week_task and not self._mystery_week_task.done():
+            self._mystery_week_task.cancel()
+        self._mystery_week_task = None
+
+    # ── Channel Lock / Unlock ────────────────────────────────
 
     async def _update_channel_states(self, active_channel_id: int | None):
         """
         Prefix inactive mode-channels with 'not-active-' and
-        remove the prefix from the currently active channel.
+        set @everyone permissions to hide/show the appropriate channel.
         """
         mode_channels = [
             Config.DEBATE_CHANNEL_ID,
             Config.INVITE_CHANNEL_ID,
             Config.MOVIE_CHANNEL_ID,
             Config.PROFILE_COMP_CHANNEL_ID,
+            Config.MYSTERY_CHANNEL_ID,
         ]
         for cid in mode_channels:
             try:
@@ -144,17 +478,28 @@ class ModeManager:
                 if not ch:
                     continue
                 base = ch.name.replace("not-active-", "", 1) if ch.name.startswith("not-active-") else ch.name
+                everyone = ch.guild.default_role
 
                 if cid == active_channel_id:
                     if ch.name.startswith("not-active-"):
                         await ch.edit(name=base)
+                    await ch.set_permissions(
+                        everyone,
+                        view_channel=True,
+                        send_messages=True,
+                    )
                 else:
                     if not ch.name.startswith("not-active-"):
                         await ch.edit(name=f"not-active-{base}")
+                    await ch.set_permissions(
+                        everyone,
+                        view_channel=False,
+                        send_messages=False,
+                    )
             except Exception as e:
-                print(f"[MODE] Failed to update channel {cid}: {e}")
+                logger.warning("Failed to update channel %s: %s", cid, e)
 
-    # ── End Button Frenzy ───────────────────────────────────
+    # ── End Button Frenzy ────────────────────────────────────
 
     async def end_button_frenzy(self, channel):
         """Announce the Button Frenzy winner and award points."""
@@ -168,9 +513,9 @@ class ModeManager:
             return
 
         max_clicks = max(clicks.values())
-        winners = [uid for uid, c in clicks.items() if c == max_clicks]
+        winners    = [uid for uid, c in clicks.items() if c == max_clicks]
 
-        msg = "🏆 **Button Frenzy ended!**\n"
+        msg = "@everyone\n🏆 **Button Frenzy ended!**\n"
         for winner_id in winners:
             self.bot.points_manager.add_points(winner_id, "button_frenzy")
             self.bot.points_manager.add_win(winner_id)
@@ -183,75 +528,4 @@ class ModeManager:
 
         await channel.send(msg)
         self.active_mode = None
-
-    # ── Mystery: Clue Revelation Loop ───────────────────────
-
-    async def _reveal_mystery_clues(self, channel):
-        """Reveal clues on a timer, then auto-answer if unsolved."""
-        await asyncio.sleep(900)  # 15 min until clue 2
-
-        if not self._mystery_active():
-            return
-        clues = self.active_mode["clues"]
-        idx = self.active_mode["current_clue"] + 1
-
-        if idx < len(clues):
-            self.active_mode["current_clue"] = idx
-            await channel.send(f"🔍 Clue {idx + 1}: **{clues[idx]}**")
-
-            await asyncio.sleep(900)  # 15 min until final clue
-            if not self._mystery_active():
-                return
-
-            final = self.active_mode["current_clue"] + 1
-            if final < len(clues):
-                self.active_mode["current_clue"] = final
-                await channel.send(f"🔍 Final Clue: **{clues[final]}**")
-                await channel.send("⚠️ You have 10 minutes to solve the mystery!")
-
-                await asyncio.sleep(600)
-                if self._mystery_active():
-                    answer = self.active_mode["answer"]
-                    await channel.send(f"❌ Time's up! The answer was **{answer}**.")
-                    self.active_mode = None
-
-    def _mystery_active(self) -> bool:
-        return (
-            self.active_mode is not None
-            and self.active_mode.get("type") == "mystery"
-            and not self.active_mode.get("solved")
-        )
-
-    # ── Mystery: Guess Handler ──────────────────────────────
-
-    async def handle_message(self, message):
-        """Check if a message solves the mystery."""
-        if not self.active_mode or self.active_mode.get("type") != "mystery":
-            return
-        if self.active_mode.get("solved"):
-            return
-
-        uid     = message.author.id
-        answer  = self.active_mode["answer"].lower()
-        content = message.content.lower().strip()
-
-        if content == answer:
-            self.active_mode["solved"] = True
-            self.bot.points_manager.add_points(uid, "mystery")
-            self.bot.points_manager.add_win(uid)
-            await message.channel.send(
-                f"🎉 {message.author.mention} solved the mystery! The answer was **{answer}**!"
-            )
-            self.active_mode = None
-            return
-
-        # Anti-spam: ignore rapid duplicate guesses
-        now  = time.time()
-        last = self.last_guess_time.get(uid)
-        if last and now - last["timestamp"] < 10 and content == last["content"]:
-            try:
-                await message.delete()
-            except Exception:
-                pass
-            return
-        self.last_guess_time[uid] = {"timestamp": now, "content": content}
+        logger.info("Button Frenzy ended. Winners: %s", winners)
