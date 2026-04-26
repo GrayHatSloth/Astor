@@ -12,7 +12,6 @@
 # ============================================================
 
 import logging
-import random
 
 from src.utils.helpers import EMOJI_PATTERN
 
@@ -93,27 +92,7 @@ class AstorEngine:
 
     async def _handle_twist_activation(self, payload, channel, guild):
         """Handle a ✅ reaction on the weekly twist button."""
-        tm = self.twist_manager
-
-        if tm.pending_twist and not tm.active_twist:
-            twist_type = random.choice(["most_messages", "first_to_x", "most_words", "most_replies"])
-
-            if twist_type == "first_to_x":
-                tm.first_to_x_target = random.randint(5000, 10000)
-
-            tm.active_twist = {"type": twist_type, "winner_declared": False}
-            tm.data = {}
-            tm.pending_twist = False
-
-            labels = {
-                "most_messages": "📊 Send the most messages this week to win!",
-                "first_to_x":   f"🏁 First to reach {tm.first_to_x_target} messages wins!",
-                "most_words":   "📝 Send the most words this week to win!",
-                "most_replies": "💬 Get the most replies to your messages to win!",
-            }
-            await channel.send(
-                f"@everyone\n🎉 **Weekly Twist Started!** {labels[twist_type]}"
-            )
+        await self.twist_manager.activate_twist(channel)
 
         # Remove the user's reaction so the button stays clean
         message = await channel.fetch_message(payload.message_id)

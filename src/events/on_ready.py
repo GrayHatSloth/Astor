@@ -67,6 +67,10 @@ def setup(bot, managers):
             # Restore any effect that was active before last restart
             em.restore_effect_state()
 
+            # Restore weekly mode and twist state from last run
+            tm.restore_twist_state()
+            await mm.restore_mode_state()
+
             # Start background loops (once per lifetime)
             if not bot.loops_started:
                 bot.loop.create_task(em.chaos_button_loop())

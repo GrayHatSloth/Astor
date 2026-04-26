@@ -7,7 +7,9 @@
 # ============================================================
 
 import asyncio
+import json
 import logging
+import pathlib
 import random
 import time
 
@@ -16,6 +18,8 @@ import discord
 from config import Config
 
 logger = logging.getLogger(__name__)
+
+_MODE_STATE_FILE = pathlib.Path(__file__).resolve().parent.parent.parent / "data" / "mode_state.json"
 
 
 class ModeManager:
@@ -171,6 +175,7 @@ class ModeManager:
         # ── Invite Competition ──────────────────────────────
         if mode_type == "invite_comp":
             self.active_mode = {"type": "invite_comp"}
+            self._persist_mode()
             await self._update_channel_states(Config.INVITE_CHANNEL_ID)
             if announce:
                 await announce.send(
@@ -186,6 +191,7 @@ class ModeManager:
         elif mode_type == "debate":
             topic = random.choice(self.DEBATE_TOPICS)
             self.active_mode = {"type": "debate", "topic": topic}
+            self._persist_mode()
             await self._update_channel_states(Config.DEBATE_CHANNEL_ID)
             ch = self.bot.get_channel(Config.DEBATE_CHANNEL_ID)
             if ch:
@@ -194,6 +200,7 @@ class ModeManager:
         # ── Movie / Game Night ──────────────────────────────
         elif mode_type == "movie_night":
             self.active_mode = {"type": "movie_night"}
+            self._persist_mode()
             await self._update_channel_states(Config.MOVIE_CHANNEL_ID)
             ch = self.bot.get_channel(Config.MOVIE_CHANNEL_ID)
             if ch:
@@ -203,6 +210,7 @@ class ModeManager:
         elif mode_type == "profile_comp":
             category = random.choice(["pfp", "bio", "banner"])
             self.active_mode = {"type": "profile_comp", "category": category}
+            self._persist_mode()
             await self._update_channel_states(Config.PROFILE_COMP_CHANNEL_ID)
             ch = self.bot.get_channel(Config.PROFILE_COMP_CHANNEL_ID)
             if ch:
@@ -211,6 +219,7 @@ class ModeManager:
         # ── Button Frenzy ───────────────────────────────────
         elif mode_type == "button_frenzy":
             self.active_mode = {"type": "button_frenzy", "clicks": {}}
+            self._persist_mode()
             await self._update_channel_states(None)
             if announce:
                 await announce.send(
@@ -249,8 +258,10 @@ class ModeManager:
             "current_mystery": None,
             "solved":          True,
             "started":         time.time(),
+            "day_started":     time.time(),
         }
         self._wrong_guess_time = {}
+        self._persist_mode()
 
         await self._update_channel_states(Config.MYSTERY_CHANNEL_ID)
 
@@ -270,43 +281,59 @@ class ModeManager:
 
     # ── Mystery: 7-day week loop ─────────────────────────────
 
-    async def _mystery_week_loop(self, announce, mystery_ch):
+    async def _mystery_week_loop(self, announce, mystery_ch, *, resume_day: int = 0, first_day_remaining: float | None = None):
         """
         Run one mystery per day for 7 days.
         Each day: post clue 1, start the clue loop, wait 24 h, then advance.
+        resume_day / first_day_remaining are used when resuming after a restart.
         """
         try:
             mysteries = self.active_mode["mysteries"]
 
             for day_index, mystery in enumerate(mysteries):
+                # Skip days already completed before this restart
+                if day_index < resume_day:
+                    continue
+
                 if not self.active_mode or self.active_mode.get("type") != "mystery":
                     return
 
-                # Set today's mystery
-                self.active_mode["current_day"]     = day_index
-                self.active_mode["current_mystery"] = mystery
-                self.active_mode["solved"]          = False
-                self._wrong_guess_time              = {}
+                is_resumed_day = (day_index == resume_day and first_day_remaining is not None)
 
-                interval_hrs = Config.MYSTERY_CLUE_INTERVAL_SECONDS // 3600
-                total_clues  = len(mystery["clues"])
+                if not is_resumed_day:
+                    # Normal day start — record timestamp and post clue 1
+                    self.active_mode["current_day"]     = day_index
+                    self.active_mode["current_mystery"] = mystery
+                    self.active_mode["solved"]          = False
+                    self.active_mode["day_started"]     = time.time()
+                    self._wrong_guess_time              = {}
+                    self._persist_mode()
 
-                if mystery_ch:
-                    await mystery_ch.send(
-                        f"@everyone\n"
-                        f"🕵️ **Day {day_index + 1}/7 — New Riddle!**\n"
-                        f"Post your one-word answer in this channel.\n"
-                        f"**Clue 1/{total_clues}:** {mystery['clues'][0]}\n"
-                        f"*(Next clue in {interval_hrs}h — the answer will be revealed after {interval_hrs * total_clues}h if unsolved)*"
+                    interval_hrs = Config.MYSTERY_CLUE_INTERVAL_SECONDS // 3600
+                    total_clues  = len(mystery["clues"])
+
+                    if mystery_ch:
+                        await mystery_ch.send(
+                            f"@everyone\n"
+                            f"🕵️ **Day {day_index + 1}/7 — New Riddle!**\n"
+                            f"Post your one-word answer in this channel.\n"
+                            f"**Clue 1/{total_clues}:** {mystery['clues'][0]}\n"
+                            f"*(Next clue in {interval_hrs}h — the answer will be revealed after {interval_hrs * total_clues}h if unsolved)*"
+                        )
+
+                    self._mystery_task = self.bot.loop.create_task(
+                        self._mystery_clue_loop(mystery_ch, mystery)
                     )
+                    day_sleep = Config.MYSTERY_DAY_DURATION_SECONDS
+                else:
+                    # Resumed day — skip clue 1 (already sent), resume from correct clue
+                    self._mystery_task = self.bot.loop.create_task(
+                        self._mystery_clue_loop_resume(mystery_ch, mystery, first_day_remaining)
+                    )
+                    day_sleep = first_day_remaining
 
-                # Start this day's clue-reveal task
-                self._mystery_task = self.bot.loop.create_task(
-                    self._mystery_clue_loop(mystery_ch, mystery)
-                )
-
-                # Wait the full day, then move on regardless of solve status
-                await asyncio.sleep(Config.MYSTERY_DAY_DURATION_SECONDS)
+                # Wait the allotted time, then advance regardless of solve status
+                await asyncio.sleep(day_sleep)
 
                 # Cancel the clue loop if it hasn't ended naturally
                 if self._mystery_task and not self._mystery_task.done():
@@ -330,6 +357,7 @@ class ModeManager:
 
             await self._update_channel_states(None)
             self.active_mode        = None
+            self._persist_mode()
             self._mystery_week_task = None
             logger.info("Mystery week completed naturally.")
 
@@ -382,11 +410,86 @@ class ModeManager:
                 )
             if self._mystery_active():
                 self.active_mode["solved"] = True
+                self._persist_mode()
             self._mystery_task = None
             logger.info("Mystery day timed out. Answer was: %s", answer)
 
         except asyncio.CancelledError:
             logger.debug("Mystery clue loop cancelled.")
+
+    # ── Mystery: clue loop resume (after restart) ───────────────
+
+    async def _mystery_clue_loop_resume(self, channel, mystery, remaining_in_day: float):
+        """
+        Resume revealing clues mid-day after a restart.
+        Skips clues already sent and waits only the time still owed.
+        """
+        try:
+            clues    = mystery["clues"]
+            answer   = mystery["answer"]
+            total    = len(clues)
+            interval = Config.MYSTERY_CLUE_INTERVAL_SECONDS
+
+            elapsed_in_day = Config.MYSTERY_DAY_DURATION_SECONDS - remaining_in_day
+
+            # Index of the next clue to send (clue 0 was already posted at day start)
+            next_idx = int(elapsed_in_day / interval) + 1
+
+            if next_idx >= total:
+                # All clues already sent; we're in the final guess window
+                await asyncio.sleep(remaining_in_day)
+                if self._mystery_active() and channel:
+                    await channel.send(
+                        f"❌ Nobody solved today's mystery.\n"
+                        f"The answer was **{answer}**."
+                    )
+                if self._mystery_active():
+                    self.active_mode["solved"] = True
+                    self._persist_mode()
+                self._mystery_task = None
+                logger.info("Resumed mystery day timed out. Answer was: %s", answer)
+                return
+
+            # Wait until the next clue's scheduled slot
+            wait = next_idx * interval - elapsed_in_day
+            if wait > 0:
+                await asyncio.sleep(wait)
+
+            # Send remaining clues from next_idx onward
+            for i in range(next_idx, total):
+                if i > next_idx:
+                    await asyncio.sleep(interval)
+
+                if not self._mystery_active():
+                    return
+
+                is_last = (i == total - 1)
+                label   = f"Final Clue ({i + 1}/{total})" if is_last else f"Clue {i + 1}/{total}"
+                if channel:
+                    await channel.send(f"🔍 **{label}:** {clues[i]}")
+
+                if is_last and channel:
+                    final_hrs = Config.MYSTERY_FINAL_GUESS_SECONDS // 3600
+                    await channel.send(
+                        f"⚠️ That was the last clue! You have **{final_hrs} hours** to answer."
+                    )
+
+            # Final guess window
+            await asyncio.sleep(Config.MYSTERY_FINAL_GUESS_SECONDS)
+
+            if self._mystery_active() and channel:
+                await channel.send(
+                    f"❌ Nobody solved today's mystery.\n"
+                    f"The answer was **{answer}**."
+                )
+            if self._mystery_active():
+                self.active_mode["solved"] = True
+                self._persist_mode()
+            self._mystery_task = None
+            logger.info("Resumed mystery day timed out. Answer was: %s", answer)
+
+        except asyncio.CancelledError:
+            logger.debug("Resumed mystery clue loop cancelled.")
 
     def _mystery_active(self) -> bool:
         return (
@@ -427,6 +530,7 @@ class ModeManager:
         if content == answer:
             # Mark solved so the clue loop exits cleanly on cancel
             self.active_mode["solved"] = True
+            self._persist_mode()
 
             if self._mystery_task and not self._mystery_task.done():
                 self._mystery_task.cancel()
@@ -446,6 +550,84 @@ class ModeManager:
 
         # Wrong guess — record time to rate-limit future attempts
         self._wrong_guess_time[uid] = now
+
+    # ── State Persistence ────────────────────────────────────
+
+    def _persist_mode(self):
+        """Write current active_mode to disk so it survives restarts."""
+        mode = self.active_mode
+        if mode and mode.get("type") == "button_frenzy":
+            # JSON requires string keys; user IDs are ints
+            mode = dict(mode)
+            mode["clicks"] = {str(k): v for k, v in mode["clicks"].items()}
+        try:
+            _MODE_STATE_FILE.write_text(json.dumps({"active_mode": mode}))
+        except OSError as exc:
+            logger.warning("Could not save mode state: %s", exc)
+
+    async def restore_mode_state(self):
+        """Load and re-apply mode state on startup. Called from on_ready."""
+        if not _MODE_STATE_FILE.exists():
+            return
+        try:
+            saved = json.loads(_MODE_STATE_FILE.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("Could not load mode state: %s", exc)
+            return
+
+        mode = saved.get("active_mode")
+        if not mode:
+            return
+
+        if mode.get("type") == "button_frenzy":
+            mode["clicks"] = {int(k): v for k, v in mode.get("clicks", {}).items()}
+
+        self.active_mode = mode
+
+        if mode.get("type") != "mystery":
+            logger.info("Restored weekly mode: %s", mode.get("type"))
+            return
+
+        # ── Mystery mode: figure out where we are in the week ──
+        mysteries   = mode.get("mysteries", [])
+        current_day = mode.get("current_day", 0)
+        day_started = mode.get("day_started", time.time())
+
+        elapsed_in_week = time.time() - day_started
+        days_elapsed    = int(elapsed_in_week / Config.MYSTERY_DAY_DURATION_SECONDS)
+        new_day         = current_day + days_elapsed
+
+        if new_day >= len(mysteries):
+            logger.info("Mystery week ended while offline; clearing mode.")
+            self.active_mode = None
+            self._persist_mode()
+            await self._update_channel_states(None)
+            return
+
+        # Advance to the correct day
+        self.active_mode["current_day"]     = new_day
+        self.active_mode["current_mystery"] = mysteries[new_day]
+        self.active_mode["solved"]          = False
+        self.active_mode["day_started"]     = day_started + days_elapsed * Config.MYSTERY_DAY_DURATION_SECONDS
+        self._persist_mode()
+
+        time_into_day    = elapsed_in_week - days_elapsed * Config.MYSTERY_DAY_DURATION_SECONDS
+        remaining_in_day = Config.MYSTERY_DAY_DURATION_SECONDS - time_into_day
+
+        mystery_ch = self.bot.get_channel(Config.MYSTERY_CHANNEL_ID)
+        announce   = self.bot.get_channel(Config.ANNOUNCEMENT_CHANNEL_ID)
+
+        self._mystery_week_task = self.bot.loop.create_task(
+            self._mystery_week_loop(
+                announce, mystery_ch,
+                resume_day=new_day,
+                first_day_remaining=remaining_in_day,
+            )
+        )
+        logger.info(
+            "Resumed mystery mode at day %d/%d (~%ds remaining today)",
+            new_day + 1, len(mysteries), int(remaining_in_day),
+        )
 
     # ── Cancel all mystery tasks ─────────────────────────────
 
@@ -510,6 +692,7 @@ class ModeManager:
         if not clicks:
             await channel.send("❌ Button Frenzy ended! Nobody clicked anything.")
             self.active_mode = None
+            self._persist_mode()
             return
 
         max_clicks = max(clicks.values())
@@ -528,4 +711,5 @@ class ModeManager:
 
         await channel.send(msg)
         self.active_mode = None
+        self._persist_mode()
         logger.info("Button Frenzy ended. Winners: %s", winners)
