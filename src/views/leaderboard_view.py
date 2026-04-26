@@ -29,13 +29,27 @@ class NextPageButton(discord.ui.Button):
         self.parent_view = parent_view
 
     async def callback(self, interaction: discord.Interaction):
-        top = self.parent_view.points_manager.leaderboard()
+        if self.parent_view.mode == "wins":
+            top = self.parent_view.points_manager.leaderboard_by_wins()
+        else:
+            top = self.parent_view.points_manager.leaderboard()
         total_pages = (len(top) + self.parent_view.per_page - 1) // self.parent_view.per_page
         if self.parent_view.page + 1 < total_pages:
             self.parent_view.page += 1
             await self.parent_view.update_message(interaction)
         else:
             await interaction.response.defer()
+
+
+class ToggleLeaderboardTypeButton(discord.ui.Button):
+    def __init__(self, parent_view):
+        label = "🏆 Show Wins" if parent_view.mode == "points" else "💰 Show Points"
+        super().__init__(label=label, style=discord.ButtonStyle.secondary)
+        self.parent_view = parent_view
+
+    async def callback(self, interaction: discord.Interaction):
+        self.parent_view.mode = "wins" if self.parent_view.mode == "points" else "points"
+        await self.parent_view.update_message(interaction)
 
 
 class RefreshLeaderboardButton(discord.ui.Button):
@@ -68,33 +82,44 @@ class LeaderboardView(discord.ui.View):
         self.bot = bot
         self.page = 0
         self.per_page = 10
+        self.mode = "points"
         self.update_buttons()
 
     # Rebuild button row based on current page
     def update_buttons(self):
         self.clear_items()
-        top = self.points_manager.leaderboard()
+        top = self.points_manager.leaderboard_by_wins() if self.mode == "wins" else self.points_manager.leaderboard()
         total_pages = (len(top) + self.per_page - 1) // self.per_page
         if self.page > 0:
             self.add_item(PreviousPageButton(self))
         if self.page + 1 < total_pages:
             self.add_item(NextPageButton(self))
+        self.add_item(ToggleLeaderboardTypeButton(self))
         self.add_item(RefreshLeaderboardButton(self))
         self.add_item(CloseLeaderboardButton())
 
     # Build the embed for the current page
     def create_embed(self) -> discord.Embed:
-        embed = discord.Embed(
-            title="🏆 Points Leaderboard",
-            description="Top players by total points earned",
-            color=discord.Color.gold(),
-        )
-        top = self.points_manager.leaderboard()
+        if self.mode == "wins":
+            embed = discord.Embed(
+                title="🏆 Wins Leaderboard",
+                description="Top players by total weekly wins",
+                color=discord.Color.gold(),
+            )
+            top = self.points_manager.leaderboard_by_wins()
+        else:
+            embed = discord.Embed(
+                title="🏆 Points Leaderboard",
+                description="Top players by total points earned",
+                color=discord.Color.gold(),
+            )
+            top = self.points_manager.leaderboard()
+
         if not top:
             embed.description = (
-                "No points yet! Start participating in weekly modes to earn points!"
+                "No leaderboard data yet! Start participating in weekly modes to earn points and wins."
             )
-            embed.set_footer(text="Be the first to earn some points! 🎯")
+            embed.set_footer(text="Be the first to earn some points or wins! 🎯")
             return embed
 
         start = self.page * self.per_page
@@ -105,10 +130,16 @@ class LeaderboardView(discord.ui.View):
         lines = []
         for i, (uid, stats) in enumerate(page_entries, start + 1):
             medal = medals.get(i, "")
-            lines.append(
-                f"{medal}**#{i}** <@{uid}> — **{stats['points']}** 🪙 "
-                f"(**{stats['wins']}** wins)"
-            )
+            if self.mode == "wins":
+                lines.append(
+                    f"{medal}**#{i}** <@{uid}> — **{stats['wins']}** 🏆 "
+                    f"(**{stats['points']}** points)"
+                )
+            else:
+                lines.append(
+                    f"{medal}**#{i}** <@{uid}> — **{stats['points']}** 🪙 "
+                    f"(**{stats['wins']}** wins)"
+                )
 
         embed.add_field(
             name="📊 Rankings",

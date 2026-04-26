@@ -381,6 +381,14 @@ class PointsManager:
             )
         return self._leaderboard_cache[:top]
 
+    def leaderboard_by_wins(self, top: int = 10):
+        """Return the top users sorted by wins, descending."""
+        return sorted(
+            self.data.items(),
+            key=lambda x: x[1]["wins"],
+            reverse=True,
+        )[:top]
+
     def check_leaderboard_challenges(self):
         """Award leaderboard-rank challenge progress for top-10 users."""
         top_10 = [int(uid) for uid, _ in self.leaderboard()[:10]]
