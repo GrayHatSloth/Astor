@@ -27,7 +27,8 @@ async def setup(bot, mode_manager, twist_manager):
         guild=discord.Object(id=Config.GUILD_ID),
     )
     async def startweekly(interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
+        if not await _require_admin(interaction):
+            return
 
         mode_ok  = await mode_manager.start_weekly_mode()
         twist_ok = False
@@ -36,17 +37,14 @@ async def setup(bot, mode_manager, twist_manager):
                 bot.get_channel(Config.GENERAL_CHANNEL_ID)
             )
 
-        if not await _require_admin(interaction):
-            return
-
         if mode_ok and twist_ok:
-            await interaction.followup.send("✅ Weekly event started!", ephemeral=True)
+            await interaction.response.send_message("✅ Weekly event started!", ephemeral=True)
         elif not mode_ok:
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 "⚠️ A weekly mode is already active. Complete it first.", ephemeral=True
             )
         else:
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 "⚠️ A weekly twist is already pending or active.", ephemeral=True
             )
 
@@ -65,7 +63,8 @@ async def setup(bot, mode_manager, twist_manager):
         app_commands.Choice(name="Mystery Solving",    value="mystery"),
     ])
     async def forceweekly(interaction: discord.Interaction, mode: app_commands.Choice[str]):
-        await interaction.response.defer(ephemeral=True)
+        if not await _require_admin(interaction):
+            return
 
         mode_ok  = await mode_manager.start_weekly_mode(forced_mode=mode.value)
         twist_ok = False
@@ -74,17 +73,14 @@ async def setup(bot, mode_manager, twist_manager):
                 bot.get_channel(Config.GENERAL_CHANNEL_ID)
             )
 
-        if not await _require_admin(interaction):
-            return
-
         if mode_ok and twist_ok:
-            await interaction.followup.send(f"✅ Forced weekly mode: {mode.name}", ephemeral=True)
+            await interaction.response.send_message(f"✅ Forced weekly mode: {mode.name}", ephemeral=True)
         elif not mode_ok:
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 "⚠️ A weekly mode is already active. Complete it first.", ephemeral=True
             )
         else:
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 "⚠️ A weekly twist is already pending or active.", ephemeral=True
             )
 
