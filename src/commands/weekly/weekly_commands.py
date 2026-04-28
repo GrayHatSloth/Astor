@@ -90,7 +90,7 @@ async def setup(bot, mode_manager, twist_manager):
 
     @bot.tree.command(
         name="endweekly",
-        description="Manually end the current weekly twist",
+        description="Manually end the current weekly event (mode + twist)",
         guild=discord.Object(id=Config.GUILD_ID),
     )
     async def endweekly(interaction: discord.Interaction):
@@ -100,6 +100,10 @@ async def setup(bot, mode_manager, twist_manager):
 
         if gen:
             await twist_manager.end_twist(gen)
-            await interaction.response.send_message("Weekly twist ended!", ephemeral=True)
+            await mode_manager.end_weekly_mode(gen)
+            await interaction.response.send_message(
+                "Weekly event ended! The current twist and mode have both been stopped.",
+                ephemeral=True,
+            )
         else:
             await interaction.response.send_message("Could not find general channel!", ephemeral=True)

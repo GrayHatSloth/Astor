@@ -713,3 +713,32 @@ class ModeManager:
         self.active_mode = None
         self._persist_mode()
         logger.info("Button Frenzy ended. Winners: %s", winners)
+
+    async def end_weekly_mode(self, channel):
+        """End the current weekly mode early and reset channel state."""
+        if not self.active_mode:
+            return
+
+        mode_type = self.active_mode.get("type")
+        if mode_type == "button_frenzy":
+            await self.end_button_frenzy(channel)
+            return
+
+        if mode_type == "mystery":
+            self.cancel_mystery_tasks()
+            if channel:
+                await channel.send(
+                    "@everyone\n⏹️ **Mystery Week ended early!**\n"
+                    "The current mystery event has been cancelled."
+                )
+        else:
+            if channel:
+                await channel.send(
+                    f"@everyone\n⏹️ **Weekly Mode ended early!**\n"
+                    f"The current mode ({mode_type.replace('_', ' ').title()}) has been cancelled."
+                )
+
+        await self._update_channel_states(None)
+        self.active_mode = None
+        self._persist_mode()
+        logger.info("Weekly mode ended early: %s", mode_type)
