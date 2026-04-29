@@ -36,7 +36,6 @@ class ModeManager:
     # Clues are intentionally abstract and cryptic - no easy hints.
     # Clue 1 is sent immediately (hardest); clue 2 after 8 h; clue 3 after 16 h.
     # Answer is revealed at 24 h if still unsolved.
-    # 32 mysteries - enough for 4+ weeks with no same-week repeats.
     MYSTERIES = [
         {
             "answer": "echo",
@@ -51,7 +50,7 @@ class ModeManager:
             "clues": [
                 "I am the slow breath of the ocean - an inhale and exhale that no storm creates and no calm can stop.",
                 "I am governed by something 384,000 kilometres away. I have been rising and falling since before the first human walked the earth.",
-                "Shakespeare wrote of me: 'There is a ___ in the affairs of men, which, taken at the flood, leads on to fortune.' Sailors predict me to the minute.",
+                "Shakespeare wrote of me: 'There is a ____ in the affairs of men, which, taken at the flood, leads on to fortune.' Sailors predict me to the minute.",
             ],
         },
         {
