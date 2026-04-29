@@ -1,5 +1,5 @@
 # ============================================================
-# src/managers/mode_manager.py — Weekly Game Modes
+# src/managers/mode_manager.py - Weekly Game Modes
 # ============================================================
 # Each week a random mode is chosen (or forced by an admin).
 # This manager starts modes, locks/unlocks channels, runs the
@@ -33,96 +33,273 @@ class ModeManager:
 
     # ── Mystery pool ─────────────────────────────────────────
     # Each entry has an "answer" (exact single word) and 3 clues.
-    # Clues are intentionally abstract — no obvious hints.
-    # Clue 1 is sent immediately; clue 2 after 8 h; clue 3 after 16 h.
+    # Clues are intentionally abstract and cryptic - no easy hints.
+    # Clue 1 is sent immediately (hardest); clue 2 after 8 h; clue 3 after 16 h.
     # Answer is revealed at 24 h if still unsolved.
+    # 32 mysteries - enough for 4+ weeks with no same-week repeats.
     MYSTERIES = [
         {
-            "answer": "horizon",
+            "answer": "echo",
             "clues": [
-                "The closer you come to me, the further I retreat.",
-                "I exist in every direction at once, yet I occupy no single point.",
-                "Sailors have chased me for centuries. No one has ever arrived.",
+                "I am born in the space between a sound and the surface that rejected it - a voice that has lost its owner.",
+                "Mountains multiply me; open fields erase me. I always arrive after the source, carrying the same message, diminished.",
+                "A Greek nymph was condemned to become me - stripped of everything except the last words she heard, forced to repeat them forever.",
             ],
         },
         {
-            "answer": "question",
+            "answer": "tide",
             "clues": [
-                "Answer me completely and I produce more of myself.",
-                "I am born the moment you realise you do not know something.",
-                "I am the seed of all knowledge, yet I contain none.",
+                "I am the slow breath of the ocean - an inhale and exhale that no storm creates and no calm can stop.",
+                "I am governed by something 384,000 kilometres away. I have been rising and falling since before the first human walked the earth.",
+                "Shakespeare wrote of me: 'There is a ___ in the affairs of men, which, taken at the flood, leads on to fortune.' Sailors predict me to the minute.",
+            ],
+        },
+        {
+            "answer": "oath",
+            "clues": [
+                "I weigh nothing and occupy no space - yet entire kingdoms have crumbled the moment I was broken.",
+                "Courts demand me. Religions sanctify me. A villain breaks me carelessly; a hero dies rather than betray me.",
+                "I am an invisible contract sealed by words alone - the precise line between a casual promise and a bond that outlives the person who made it.",
+            ],
+        },
+        {
+            "answer": "fossil",
+            "clues": [
+                "I am a life that turned to stone - preserved not by care, but by catastrophe, pressure, and the indifference of deep time.",
+                "I contain no heartbeat, yet I carry proof of heartbeats that stopped millions of years ago.",
+                "Miners find me by accident. Scientists reconstruct entire worlds from my existence. I am the autobiography of the Earth, written in rock.",
+            ],
+        },
+        {
+            "answer": "fever",
+            "clues": [
+                "I am your body turning against itself - and simultaneously your body fighting for itself. Both statements are true at once.",
+                "For centuries I was thought to be the disease itself. Modern medicine discovered I am the war, not the enemy.",
+                "Gold Rush prospectors named their obsession after me. Doctors have measured me with glass tubes and mercury for four hundred years.",
+            ],
+        },
+        {
+            "answer": "compass",
+            "clues": [
+                "I have no engine, no eyes, no voice - yet I have guided more explorers into the unknown than any star in the sky.",
+                "I speak only one language: direction. I have exactly four possible answers, and in the entire history of navigation I have never given a wrong one.",
+                "I do not point to the geographic top of the world. I am drawn instead to a restless magnetic anomaly - a wandering wound in the Earth's own field.",
+            ],
+        },
+        {
+            "answer": "debt",
+            "clues": [
+                "I grow while you sleep. I travel without legs. Entire civilisations have collapsed beneath my silent, accumulating weight.",
+                "I am a relationship between two parties - but only one of them is glad I exist.",
+                "I was invented the moment humanity invented money - and in five thousand years of recorded history, no empire has ever permanently abolished me.",
+            ],
+        },
+        {
+            "answer": "shadow",
+            "clues": [
+                "I am always beside you in the light - yet it is the light itself that prevents me from ever truly touching you.",
+                "I have no substance, no mass, no temperature. Ancient civilisations feared me; children still do. I am the precise shape of an absence.",
+                "Carl Jung made me a metaphor for the hidden self - the part of a person they refuse to acknowledge. In reality I am simply what you block.",
+            ],
+        },
+        {
+            "answer": "silence",
+            "clues": [
+                "I am the only thing that becomes louder the instant you become aware of me.",
+                "I can be a gift, a weapon, a punishment, or a prayer - without producing a single vibration.",
+                "In 1952, John Cage composed four minutes and thirty-three seconds of me and called it music. The audience heard something they had never consciously heard before: themselves.",
+            ],
+        },
+        {
+            "answer": "border",
+            "clues": [
+                "I am drawn on paper, painted onto maps, and enforced with weapons - yet I do not exist anywhere in the natural world.",
+                "Animals cross me daily without the slightest knowledge of my existence. I only have meaning for the one species that invented me.",
+                "I divide the same river, the same mountain range, the same sky - on the basis of decisions made by people who have been dead for centuries.",
+            ],
+        },
+        {
+            "answer": "anchor",
+            "clues": [
+                "My entire purpose is to stop movement - yet I am completely useless until I am first dropped into the unknown below.",
+                "I weigh tonnes, yet I hold something thousands of times heavier in place. I succeed by getting stuck - deliberately.",
+                "As a tattoo I meant homecoming. As a religious symbol I meant stability of the soul. As a naval tool I had one meaning only: do not drift.",
+            ],
+        },
+        {
+            "answer": "ink",
+            "clues": [
+                "I was born in darkness - squeezed from cuttlefish, pressed from berries, distilled from char - yet I carry every word ever written by human hands.",
+                "I am the layer between a thought and its permanence. Without me, every manuscript, every treaty, every love letter would be blank paper.",
+                "When Gutenberg put me into a press, knowledge could finally leave the room where it was created - and no king, no priest, no wall could stop it.",
+            ],
+        },
+        {
+            "answer": "salt",
+            "clues": [
+                "I am the only rock that humans eat - and I am present in every tear, every drop of blood, and every ocean on this planet.",
+                "I preserve the dead, flavour the living, and make the sea undrinkable. Remove me entirely from a human body and it will fail within days.",
+                "Roman soldiers were given an allowance of me as part of their wages. The Latin word for that allowance became the English word for what you earn at work.",
+            ],
+        },
+        {
+            "answer": "alphabet",
+            "clues": [
+                "I was invented only once in all of human history - and then copied. Every writing system used by a living language today descends from a single ancient source.",
+                "I am not language. I am not words. I am the technology that makes it possible to store language outside a human mind.",
+                "My English name comes from the first two letters of the Greek adaptation of the Phoenician system - the one that Greek traders learned and eventually passed to Rome.",
+            ],
+        },
+        {
+            "answer": "prism",
+            "clues": [
+                "I do not create what you see when you look through me - I reveal that it was already there, hidden inside something you assumed was pure and simple.",
+                "White light enters me as one thing and leaves as seven. I divide without destroying anything.",
+                "Newton used me to prove that sunlight was not a single simple substance. Pink Floyd put me on an album cover as a symbol of hidden complexity.",
+            ],
+        },
+        {
+            "answer": "plague",
+            "clues": [
+                "I have ended more human lives than every war in recorded history combined - moving silently, without malice, without strategy, without an army.",
+                "I travelled along trade routes, carried by animals, breathed through crowded cities. No wall, no army, no border has ever stopped me.",
+                "In the 14th century I killed between a third and a half of Europe's population and reshaped civilisation as profoundly as any military conquest - I am the catastrophe that wears no face.",
+            ],
+        },
+        {
+            "answer": "clock",
+            "clues": [
+                "I did not exist for the first ninety-nine percent of human history - yet humans have always been governed by what I measure.",
+                "I divide a continuous, unbroken flow into identical fragments and assign each a number. This single invention may have reshaped human behaviour more than any other.",
+                "Before me, every city in the world kept its own local time. Railways made that impossible - and in forcing all of them to agree on mine, I created the modern world.",
+            ],
+        },
+        {
+            "answer": "cipher",
+            "clues": [
+                "I am a language built inside another language - a shell around a message, engineered so that only one person in the world can remove it.",
+                "Armies have used me since ancient Rome. A famous version of me was solved by mathematicians working in secret, and that breakthrough changed the course of a major conflict.",
+                "My name means zero in Arabic - the same root that gave mathematics the concept of nothing. I am both the method of concealment and the concealed message itself.",
+            ],
+        },
+        {
+            "answer": "labyrinth",
+            "clues": [
+                "I was not built to keep something out - I was built to keep something in. I am the cage designed to confuse rather than confine.",
+                "Every path inside me leads somewhere, but only one leads out. I am the deliberate architecture of disorientation.",
+                "Daedalus built me beneath a Cretan palace to imprison a creature half man and half bull. Only a hero who unspooled a thread behind him found the way back.",
+            ],
+        },
+        {
+            "answer": "paradox",
+            "clues": [
+                "I am a statement that destroys itself - or a situation that is perfectly logical and completely impossible at the exact same time.",
+                "A man declares: 'This statement is false.' If he is right, he is wrong. If he is wrong, he is right. I am born and sustained in that loop.",
+                "Philosophers have battled me for millennia without resolution. Physicists found me alive in quantum mechanics. I am the crack in the wall of reason through which the universe leaks.",
+            ],
+        },
+        {
+            "answer": "entropy",
+            "clues": [
+                "I am the universe's only non-negotiable direction of travel - the irreversible drift from order toward chaos that nothing can permanently reverse.",
+                "I am why your coffee cools, why buildings crumble if untended, why no memory stays perfectly sharp. I am the second law of thermodynamics made visible in everyday life.",
+                "The only way to fight me locally - to organise, to clean, to build - is to generate more of me somewhere else. Every act of order costs the universe something.",
+            ],
+        },
+        {
+            "answer": "covenant",
+            "clues": [
+                "I am an agreement older than any legal contract - sealed not with signatures but with sacrifice, ritual, and the invocation of something greater than both parties.",
+                "After a flood, one was made with a rainbow as its seal. Another was sealed with circumcision. I am the agreement that cannot simply be cancelled by one party.",
+                "I am the difference between a deal and a sacred bond. Breaking me does not merely harm the other party - it offends the witness.",
+            ],
+        },
+        {
+            "answer": "abyss",
+            "clues": [
+                "I am depth without a bottom - the place where measurement gives up and imagination begins to fill what remains.",
+                "I exist at the floor of every deep ocean trench, at the edge of every black hole, and at the centre of every despair too large for ordinary words.",
+                "Nietzsche warned: stare into me long enough and I stare back into you. I am not mere emptiness - I am the version of emptiness that looks.",
+            ],
+        },
+        {
+            "answer": "legacy",
+            "clues": [
+                "I am what you leave behind after you are gone - not your body, not your buildings, but the shape your existence pressed into the world.",
+                "Empires spend centuries trying to control me. Artists spend lifetimes hoping for me. Most people never learn what theirs is until after they are no longer there to know.",
+                "I am the answer to the question asked only after a person cannot hear it: 'What did they matter?'",
+            ],
+        },
+        {
+            "answer": "instinct",
+            "clues": [
+                "I am the knowledge you were born with - older than any language, older than any conscious thought, written not in books but in the architecture of the body itself.",
+                "You act on me before you understand me. By the time your conscious mind has processed the situation, you have already obeyed.",
+                "A newborn knows to suckle without instruction. A bird knows the route south without a map. A human flinches before registering danger. I am the code beneath the code.",
+            ],
+        },
+        {
+            "answer": "myth",
+            "clues": [
+                "I am a story that was never meant to be taken literally - yet I have shaped the beliefs and behaviour of more people than any history book ever printed.",
+                "Civilisations use me to answer what science cannot yet address and what science can never address: why the world exists, why people suffer, what we owe the dead.",
+                "I compress the accumulated fear, wonder, and moral imagination of an entire culture into the shape of a story about heroes, monsters, and the origins of everything.",
+            ],
+        },
+        {
+            "answer": "smoke",
+            "clues": [
+                "I am what fire leaves behind once it has consumed everything solid - I rise because I am lighter than the air that refuses to hold me.",
+                "Peoples separated by mountain ranges used me to communicate across impossible distances long before any telegraph existed. The Catholic Church still uses me to announce a new pope.",
+                "I am the visible evidence of a process that is already complete - the ghost of combustion, still drifting upward long after the fire beneath has gone cold.",
+            ],
+        },
+        {
+            "answer": "law",
+            "clues": [
+                "I was not discovered in nature - I was invented. Yet once invented, every society that created me claimed I was natural, inevitable, or divinely ordained.",
+                "I can strip you of your freedom, your property, and your life - without laying a single hand on you.",
+                "Every human society in all of recorded history has had some version of me. No human society in all of recorded history has ever kept me perfectly.",
+            ],
+        },
+        {
+            "answer": "dream",
+            "clues": [
+                "I am generated by the brain to process its own electrical noise - a story assembled from fragments of memory while the body lies chemically paralysed.",
+                "Freud believed I was the royal road to the unconscious mind. Modern neuroscientists believe I am memory consolidation in action. Both explanations might be simultaneously correct.",
+                "You will spend roughly six years of your entire life inside me - experiencing it as vividly as waking reality - and forget ninety-five percent of it within ten minutes of leaving.",
+            ],
+        },
+        {
+            "answer": "map",
+            "clues": [
+                "I am an agreed-upon distortion: I flatten a sphere, warp distances, and draw boundaries that exist nowhere in nature - yet I am the most useful picture of reality ever produced.",
+                "Empires drew me to claim what they could not yet hold. Explorers died filling in my blank spaces. Every territorial war in history began with someone disagreeing over me.",
+                "Every GPS system, every navigation app, every satellite image is the descendant of the ancient problem I was invented to solve: how to represent a curved world on a flat surface.",
+            ],
+        },
+        {
+            "answer": "prison",
+            "clues": [
+                "I am a building whose entire purpose is to stop time - to hold a person fixed at one moment while the rest of the world continues moving without them.",
+                "I exist in every society that has written laws - yet no two societies have ever agreed on whether my purpose is punishment, deterrence, or rehabilitation.",
+                "The philosopher Foucault argued I was the hidden blueprint for all modern institutions: that schools, hospitals, and factories were all built on the same logic of confinement and continuous surveillance.",
+            ],
+        },
+        {
+            "answer": "threshold",
+            "clues": [
+                "I am the instant between two states - the point at which before and after exist simultaneously, and for a fraction of time, neither is yet true.",
+                "In architecture I am a physical object: a strip of wood at the base of a doorway. In physics I am the precise value at which a system changes its behaviour entirely.",
+                "Every initiation ceremony, every rite of passage, every coming-of-age ritual across every culture is built around me - the crossing of the line between one identity and another.",
             ],
         },
         {
             "answer": "gravity",
             "clues": [
-                "I have no colour, no taste, no smell — yet nothing in the universe ignores me.",
-                "I bend light itself and collapse dying stars.",
-                "Without me, you would float off this earth and the moon would vanish into space.",
-            ],
-        },
-        {
-            "answer": "memory",
-            "clues": [
-                "I can resurrect the dead and return you to places that no longer exist.",
-                "I am not always accurate — yet you trust me more than any witness.",
-                "The harder you try to hold me, the more I change.",
-            ],
-        },
-        {
-            "answer": "secret",
-            "clues": [
-                "Share me once and I shrink. Share me twice and I vanish entirely.",
-                "I can bind people together or destroy them — without a single action.",
-                "Everyone carries me. No one admits it.",
-            ],
-        },
-        {
-            "answer": "language",
-            "clues": [
-                "I can make a stranger feel at home and a brother feel like an enemy.",
-                "I have no shape, yet I build empires and start wars.",
-                "I was born before writing, yet I carry all human knowledge.",
-            ],
-        },
-        {
-            "answer": "darkness",
-            "clues": [
-                "I am not a thing — yet I fill every space that light abandons.",
-                "Remove me and nothing in the room changes, only how you see it.",
-                "I existed before the first fire was ever lit.",
-            ],
-        },
-        {
-            "answer": "future",
-            "clues": [
-                "Everyone travels toward me at the same speed, yet no one has ever arrived.",
-                "I am made of nothing, yet every action in history is taken in my name.",
-                "The moment you believe you have reached me, I become something else.",
-            ],
-        },
-        {
-            "answer": "trust",
-            "clues": [
-                "I take years to build and a single moment to destroy.",
-                "You cannot see me — but you feel my absence instantly.",
-                "Without me, no team, no friendship, no civilisation can stand.",
-            ],
-        },
-        {
-            "answer": "idea",
-            "clues": [
-                "I weigh nothing, yet I have started revolutions and ended dynasties.",
-                "I travel from mind to mind without a body or a vehicle.",
-                "Once I exist, I am impossible to fully destroy — even if the one who had me dies.",
-            ],
-        },
-        {
-            "answer": "reflection",
-            "clues": [
-                "I appear wherever water is perfectly still, yet I do not live in the water.",
-                "I copy you with perfect accuracy but reverse everything you are.",
-                "Shatter my surface and I multiply — but I never truly disappear.",
+                "I am not truly a force in the classical sense - Einstein proved I am the curvature of spacetime itself, a geometry created by the presence of mass.",
+                "I am the weakest of the four fundamental forces of nature, yet I am the one that has shaped every galaxy, every star, and every planet in the observable universe.",
+                "An apple may or may not have struck his head - but Newton was the first to realise that what pulls objects toward the ground is precisely the same thing that holds the Moon in its orbit.",
             ],
         },
     ]
@@ -130,13 +307,13 @@ class ModeManager:
     # ── Debate topics ────────────────────────────────────────
     DEBATE_TOPICS = [
         "Is school useful?",
-        "Cats vs dogs — which is the better pet?",
+        "Cats vs dogs - which is the better pet?",
         "Is AI dangerous for society?",
         "What is the world's best cuisine?",
-        "TV shows vs movies — which is better?",
+        "TV shows vs movies - which is better?",
         "Is social media doing more harm than good?",
         "Is it better to be early or fashionably late?",
-        "Morning person vs night owl — which is better?",
+        "Morning person vs night owl - which is better?",
         "Should homework be abolished?",
         "Is fame worth the loss of privacy?",
     ]
@@ -244,10 +421,9 @@ class ModeManager:
         Select 7 distinct mysteries for the week, send the @everyone
         announcement, and kick off the 7-day week loop.
         """
-        pool = self.MYSTERIES.copy()
-        random.shuffle(pool)
-        # If we ever have fewer than 7 mysteries, wrap around
-        selected = (pool * 2)[:7]
+        # random.sample never repeats elements, guaranteeing no same-week duplicates.
+        # With 32 mysteries in the pool, 7 are always safely available.
+        selected = random.sample(self.MYSTERIES, min(7, len(self.MYSTERIES)))
 
         # `solved` starts as True so _mystery_active() returns False
         # until the week loop sets the first daily mystery.
@@ -272,7 +448,7 @@ class ModeManager:
                 "@everyone\n"
                 "🕵️ **This week's event: Mystery Solving!**\n"
                 "Every day a brand-new riddle will appear in the mystery channel.\n"
-                "**7 riddles over 7 days** — can you crack them all?"
+                "**7 riddles over 7 days** - can you crack them all?"
             )
 
         self._mystery_week_task = self.bot.loop.create_task(
@@ -301,7 +477,7 @@ class ModeManager:
                 is_resumed_day = (day_index == resume_day and first_day_remaining is not None)
 
                 if not is_resumed_day:
-                    # Normal day start — record timestamp and post clue 1
+                    # Normal day start - record timestamp and post clue 1
                     self.active_mode["current_day"]     = day_index
                     self.active_mode["current_mystery"] = mystery
                     self.active_mode["solved"]          = False
@@ -315,10 +491,10 @@ class ModeManager:
                     if mystery_ch:
                         await mystery_ch.send(
                             f"@everyone\n"
-                            f"🕵️ **Day {day_index + 1}/7 — New Riddle!**\n"
+                            f"🕵️ **Day {day_index + 1}/7 - New Riddle!**\n"
                             f"Post your one-word answer in this channel.\n"
                             f"**Clue 1/{total_clues}:** {mystery['clues'][0]}\n"
-                            f"*(Next clue in {interval_hrs}h — the answer will be revealed after {interval_hrs * total_clues}h if unsolved)*"
+                            f"*(Next clue in {interval_hrs}h - the answer will be revealed after {interval_hrs * total_clues}h if unsolved)*"
                         )
 
                     self._mystery_task = self.bot.loop.create_task(
@@ -326,7 +502,7 @@ class ModeManager:
                     )
                     day_sleep = Config.MYSTERY_DAY_DURATION_SECONDS
                 else:
-                    # Resumed day — skip clue 1 (already sent), resume from correct clue
+                    # Resumed day - skip clue 1 (already sent), resume from correct clue
                     self._mystery_task = self.bot.loop.create_task(
                         self._mystery_clue_loop_resume(mystery_ch, mystery, first_day_remaining)
                     )
@@ -517,7 +693,7 @@ class ModeManager:
         if not answer:
             return
 
-        # Per-user wrong-guess cooldown — silently delete rate-limited guesses
+        # Per-user wrong-guess cooldown - silently delete rate-limited guesses
         now  = time.time()
         last = self._wrong_guess_time.get(uid, 0)
         if now - last < Config.MYSTERY_GUESS_COOLDOWN_SECONDS:
@@ -548,7 +724,7 @@ class ModeManager:
             logger.info("Mystery day %s solved by user %s. Answer: %s", day, uid, answer)
             return
 
-        # Wrong guess — record time to rate-limit future attempts
+        # Wrong guess - record time to rate-limit future attempts
         self._wrong_guess_time[uid] = now
 
     # ── State Persistence ────────────────────────────────────
@@ -707,7 +883,7 @@ class ModeManager:
                 name = user.mention
             except (discord.NotFound, discord.HTTPException):
                 name = f"Unknown ({winner_id})"
-            msg += f"👑 {name} — {max_clicks} clicks\n"
+            msg += f"👑 {name} - {max_clicks} clicks\n"
 
         await channel.send(msg)
         self.active_mode = None
